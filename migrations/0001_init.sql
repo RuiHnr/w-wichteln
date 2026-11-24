@@ -1,0 +1,3 @@
+-- Migration number: 0001
+-- Initial (empty) migration: proves the migrations setup works.
+-- Tables arrive with the tickets that need them (#2 onwards).
