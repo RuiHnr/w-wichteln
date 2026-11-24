@@ -3,6 +3,8 @@
  * kept in localStorage (ADR 0002). One token per group, keyed by group id.
  */
 
+import { readStoredRecord } from "./stored-record";
+
 const KEY = "w-wichteln:tokens";
 
 export interface IdentityStore {
@@ -14,14 +16,7 @@ export interface IdentityStore {
 type Tokens = Record<string, string>;
 
 export function createIdentityStore(storage: Pick<Storage, "getItem" | "setItem">): IdentityStore {
-  const read = (): Tokens => {
-    try {
-      const parsed: unknown = JSON.parse(storage.getItem(KEY) ?? "{}");
-      return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? (parsed as Tokens) : {};
-    } catch {
-      return {};
-    }
-  };
+  const read = (): Tokens => readStoredRecord(storage, KEY);
   const write = (tokens: Tokens) => storage.setItem(KEY, JSON.stringify(tokens));
 
   return {

@@ -1,15 +1,16 @@
-import type { Me, RecipientView } from "../../shared/api";
+import type { Me } from "../../shared/api";
 import { MIN_PARTICIPANTS_TO_DRAW } from "../../shared/draw";
-import { escapeHtml } from "../html";
 import { manageErrorMessages } from "../messages";
-import { recipientWishlist } from "./wishlist-panel";
+import type { RevealState } from "../reveal";
+import { giftRevealPanel } from "./gift-reveal";
 
 /**
  * The draw on the group page. Before it, organizers start it here and everyone else is told
- * to wait; after it, each participant sees whom they give to, and only that (ADR 0003).
+ * to wait; after it, each participant unwraps whom they give to, and only that (ADR 0003).
+ * `reveal` says whether the gift still waits wrapped or the name shows straight away.
  */
-export function drawPanel(me: Me): string {
-  if (me.group.phase === "drawn") return me.recipient ? recipientPanel(me.recipient) : "";
+export function drawPanel(me: Me, reveal: RevealState): string {
+  if (me.group.phase === "drawn") return me.recipient ? giftRevealPanel(me.recipient, reveal) : "";
   return `
     <section class="panel stack" aria-labelledby="draw-heading">
       <h2 class="panel__title" id="draw-heading" tabindex="-1" data-focus="draw">Auslosung</h2>
@@ -52,14 +53,3 @@ export function resetPanel(): string {
     </section>`;
 }
 
-/** Whom the caller gives to, with that recipient's wishlist: the only other wishlist anyone sees. */
-function recipientPanel(recipient: RecipientView): string {
-  return `
-    <section class="panel stack draw" aria-labelledby="draw-heading">
-      <h2 class="draw__label" id="draw-heading" tabindex="-1" data-focus="draw">Du beschenkst</h2>
-      <p class="draw__name">${escapeHtml(recipient.name)}</p>
-      ${recipientWishlist(recipient)}
-      <p class="panel__text">Verrat es niemandem. Nur du siehst, wen du beschenkst.</p>
-      <p class="form__status" role="status" data-draw-status></p>
-    </section>`;
-}
