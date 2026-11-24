@@ -256,6 +256,19 @@ describe("PATCH /api/groups/:groupId/participants/:participantId", () => {
   });
 });
 
+describe("DELETE /api/groups/:groupId/participants/:participantId on an organizer", () => {
+  it("lets an organizer remove another organizer, including the creator, while one organizer remains", async () => {
+    const lea = await newGroup();
+    const max = await joinAs(lea.me.group.inviteCode, "Max");
+    await setOrganizer(lea.token, lea.me.group.id, max.me.participant.id, true);
+
+    const response = await removeParticipant(max.token, lea.me.group.id, lea.me.participant.id);
+
+    expect(response.status).toBe(200);
+    expect((await response.json<Me>()).participants).toEqual([{ id: max.me.participant.id, name: "Max", isOrganizer: true }]);
+  });
+});
+
 describe("PATCH /api/groups/:groupId/participants/:participantId refused", () => {
   it("answers 409 last_organizer when the last organizer would lose the role", async () => {
     const lea = await newGroup();

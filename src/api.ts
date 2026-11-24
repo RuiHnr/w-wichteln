@@ -65,7 +65,7 @@ export async function joinGroup(inviteCode: string, name: string): Promise<JoinG
 }
 
 /** An organizer action: the caller's fresh view, or why the server refused it. */
-export type ManageResult = { ok: true; me: Me } | { ok: false; error: ManageError };
+export type OrganizerActionResult = { ok: true; me: Me } | { ok: false; error: ManageError };
 
 /** Sends an organizer action. Throws when the server cannot be reached or fails in a way the API does not describe. */
 async function sendManage(token: string, method: string, path: string, body?: unknown): Promise<Response> {
@@ -76,7 +76,7 @@ async function sendManage(token: string, method: string, path: string, body?: un
   });
 }
 
-async function readManage(response: Response, label: string): Promise<ManageResult> {
+async function readManage(response: Response, label: string): Promise<OrganizerActionResult> {
   if ([401, 403, 404, 409].includes(response.status)) {
     const { error } = (await response.json()) as { error: ManageError };
     return { ok: false, error };
@@ -88,7 +88,7 @@ async function readManage(response: Response, label: string): Promise<ManageResu
 const participantPath = (groupId: string, participantId: string) =>
   `/api/groups/${encodeURIComponent(groupId)}/participants/${encodeURIComponent(participantId)}`;
 
-export type UpdateSettingsResult = ManageResult | { ok: false; errors: GroupSettingsErrors };
+export type UpdateSettingsResult = OrganizerActionResult | { ok: false; errors: GroupSettingsErrors };
 
 /** Changes budget and exchange date; field errors come back as a result. */
 export async function updateSettings(
@@ -104,12 +104,12 @@ export async function updateSettings(
   return readManage(response, "PATCH /api/groups");
 }
 
-export async function setOrganizer(token: string, groupId: string, participantId: string, isOrganizer: boolean): Promise<ManageResult> {
+export async function setOrganizer(token: string, groupId: string, participantId: string, isOrganizer: boolean): Promise<OrganizerActionResult> {
   const response = await sendManage(token, "PATCH", participantPath(groupId, participantId), { isOrganizer });
   return readManage(response, "PATCH /api/groups/participants");
 }
 
-export async function removeParticipant(token: string, groupId: string, participantId: string): Promise<ManageResult> {
+export async function removeParticipant(token: string, groupId: string, participantId: string): Promise<OrganizerActionResult> {
   const response = await sendManage(token, "DELETE", participantPath(groupId, participantId));
   return readManage(response, "DELETE /api/groups/participants");
 }

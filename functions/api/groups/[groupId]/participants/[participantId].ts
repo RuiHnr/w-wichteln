@@ -24,8 +24,11 @@ export const onRequestPatch: PagesFunction<Env, Params> = async ({ request, env,
 
 /** An organizer removes a participant while the group is open. Answers with the caller's fresh view. */
 export const onRequestDelete: PagesFunction<Env, Params> = async ({ request, env, params }) => {
+  const groupId = String(params.groupId);
   const token = bearerToken(request);
-  if (!token) return manageErrorResponse("unknownToken");
-  const result = await removeParticipant(env.DB, token, String(params.groupId), String(params.participantId));
+  const caller = await findOrganizer(env.DB, token, groupId);
+  if (!caller.ok) return manageErrorResponse(caller.reason);
+
+  const result = await removeParticipant(env.DB, token!, groupId, String(params.participantId));
   return result.ok ? Response.json(result.me satisfies Me) : manageErrorResponse(result.reason);
 };

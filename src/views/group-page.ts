@@ -2,6 +2,7 @@ import type { Me } from "../../shared/api";
 import { escapeHtml, showMessage, showView } from "../html";
 import { inviteLink, personalLink } from "../links";
 import { groupFacts, phaseLabel } from "./group-facts";
+import type { AfterAction } from "./manage-group";
 import { participantActions, settingsPanel, wireManage } from "./manage-group";
 
 function participantList(me: Me): string {
@@ -78,7 +79,7 @@ async function copyText(input: HTMLInputElement): Promise<boolean> {
  * Shows the group page. After an organizer action, `after` says what happened (announced
  * in the status line next to the control) and which control keeps the focus.
  */
-export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?: { status: string; focus?: string }): void {
+export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?: AfterAction): void {
   showView(main, markup(me, token));
   if (after) restoreFocus(main, after);
   if (me.participant.isOrganizer) {
@@ -102,7 +103,7 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
 }
 
 /** Puts focus back near the control that was used and announces the outcome there. */
-function restoreFocus(main: HTMLElement, after: { status: string; focus?: string }): void {
+function restoreFocus(main: HTMLElement, after: AfterAction): void {
   const control = after.focus ? main.querySelector<HTMLElement>(`[data-focus="${CSS.escape(after.focus)}"]`) : null;
   (control ?? main.querySelector<HTMLElement>("#participants-heading"))!.focus();
   const status = control?.closest("form")?.querySelector<HTMLElement>("[role=status]") ?? main.querySelector<HTMLElement>("[data-people-status]")!;

@@ -11,15 +11,13 @@ import { hashToken } from "./tokens";
  * look up why.
  */
 
-export type ManageResult = { ok: true; me: Me } | { ok: false; reason: ManageFailure };
-
-export type ManageFailure = "unknownToken" | "notOrganizer" | "unknownParticipant" | "drawn" | "lastOrganizer" | "self";
+export type ManageResult = { ok: true; me: Me } | { ok: false; reason: ManageError };
 
 /** The caller, if they are an organizer of the group. */
 export async function findOrganizer(db: D1Database, token: string | null, groupId: string): Promise<ManageResult> {
   const me = token ? await findMe(db, token) : null;
-  if (!me) return { ok: false, reason: "unknownToken" };
-  if (me.group.id !== groupId || !me.participant.isOrganizer) return { ok: false, reason: "notOrganizer" };
+  if (!me) return { ok: false, reason: "unknown_token" };
+  if (me.group.id !== groupId || !me.participant.isOrganizer) return { ok: false, reason: "not_organizer" };
   return { ok: true, me };
 }
 
@@ -35,7 +33,7 @@ const NOT_LAST_ORGANIZER = `(participants.is_organizer = 0 OR EXISTS (
 /** The caller's fresh view after a successful change. */
 async function changed(db: D1Database, token: string): Promise<ManageResult> {
   const me = await findMe(db, token);
-  return me ? { ok: true, me } : { ok: false, reason: "unknownToken" };
+  return me ? { ok: true, me } : { ok: false, reason: "unknown_token" };
 }
 
 interface TargetRow {
@@ -54,7 +52,7 @@ async function whyRefused(
   groupId: string,
   participantId: string,
   rules: { self?: boolean; drawn?: boolean; lastOrganizer?: boolean },
-): Promise<ManageFailure> {
+): Promise<ManageError> {
   const caller = await findOrganizer(db, token, groupId);
   if (!caller.ok) return caller.reason;
   const target = await db
@@ -65,12 +63,12 @@ async function whyRefused(
     )
     .bind(await hashToken(token), participantId, groupId)
     .first<TargetRow>();
-  if (!target) return "unknownParticipant";
+  if (!target) return "unknown_participant";
   if (rules.self && target.is_self === 1) return "self";
   if (rules.drawn && target.phase !== "open") return "drawn";
-  if (rules.lastOrganizer && target.is_last_organizer === 1) return "lastOrganizer";
+  if (rules.lastOrganizer && target.is_last_organizer === 1) return "last_organizer";
   // The state changed between the guarded statement and this lookup; report it as a lost right.
-  return "notOrganizer";
+  return "not_organizer";
 }
 
 /** Changes budget and exchange date, in either phase. */
@@ -86,13 +84,14 @@ export async function updateGroupSettings(
     .run();
   if (updated.meta.changes === 1) return changed(db, token);
   const caller = await findOrganizer(db, token, groupId);
-  return { ok: false, reason: caller.ok ? "notOrganizer" : caller.reason };
+  return { ok: false, reason: caller.ok ? "not_organizer" : caller.reason };
 }
 
 /**
  * Removes a participant while the group is open. Removing yourself is refused: it would
  * cut you off from the group, and leaving is not something this action offers. Since the
- * caller is an organizer who stays, the last organizer is never removed.
+ * caller is an organizer who stays, the last organizer is never removed; the statement
+ * still guards that invariant itself.
  */
 export async function removeParticipant(
   db: D1Database,
@@ -112,7 +111,7 @@ export async function removeParticipant(
     .bind(participantId, groupId, tokenHash, tokenHash, groupId)
     .run();
   if (deleted.meta.changes === 1) return changed(db, token);
-  return { ok: false, reason: await whyRefused(db, token, groupId, participantId, { self: true, drawn: true, lastOrganizer: true }) };
+  return { ok: false, reason: await whyRefused(db, token, groupId, participantId, { self: true, drawn: true }) };
 }
 
 /**
@@ -140,16 +139,16 @@ export async function setOrganizer(
   return { ok: false, reason: await whyRefused(db, token, groupId, participantId, { lastOrganizer: !isOrganizer }) };
 }
 
+const statusOf: Record<ManageError, number> = {
+  unknown_token: 401,
+  not_organizer: 403,
+  unknown_participant: 404,
+  drawn: 409,
+  last_organizer: 409,
+  self: 409,
+};
+
 /** The error body and status the API answers a refused management action with. */
-export function manageErrorResponse(reason: ManageFailure): Response {
-  const errors: Record<ManageFailure, [ManageError, number]> = {
-    unknownToken: ["unknown_token", 401],
-    notOrganizer: ["not_organizer", 403],
-    unknownParticipant: ["unknown_participant", 404],
-    drawn: ["drawn", 409],
-    lastOrganizer: ["last_organizer", 409],
-    self: ["self", 409],
-  };
-  const [error, status] = errors[reason];
-  return Response.json({ error }, { status });
+export function manageErrorResponse(error: ManageError): Response {
+  return Response.json({ error }, { status: statusOf[error] });
 }

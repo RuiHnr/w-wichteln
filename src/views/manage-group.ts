@@ -1,4 +1,4 @@
-import type { Me, ParticipantView } from "../../shared/api";
+import type { ManageError, Me, ParticipantView } from "../../shared/api";
 import type { GroupSettingsErrors, GroupSettingsField } from "../../shared/group-input";
 import { validateGroupSettings } from "../../shared/group-input";
 import type { UpdateSettingsResult } from "../api";
@@ -12,8 +12,14 @@ import { localToday } from "../today";
  * Organizer role and removal. Only rendered for organizers; the API enforces the same rules.
  */
 
-/** How the group page shows the caller's fresh view after an action, with a line to announce. */
-export type Rerender = (me: Me, after: { status: string; focus?: string }) => void;
+/** What happened after an organizer action, and which control (by `data-focus`) keeps the focus. */
+export interface AfterAction {
+  status: string;
+  focus?: string;
+}
+
+/** How the group page shows the caller's fresh view after an action. */
+export type Rerender = (me: Me, after: AfterAction) => void;
 
 const settingsFields: GroupSettingsField[] = ["budget", "exchangeDate"];
 
@@ -21,8 +27,6 @@ const NETWORK_ERROR = "Das hat nicht geklappt. Prüf deine Verbindung und versuc
 
 /** The panel to change budget and date. */
 export function settingsPanel({ group }: Me): string {
-  const today = localToday();
-  const min = group.exchangeDate < today ? group.exchangeDate : today;
   return `
     <section class="panel stack" aria-labelledby="settings-heading">
       <h2 class="panel__title" id="settings-heading">Gruppe verwalten</h2>
@@ -39,7 +43,7 @@ export function settingsPanel({ group }: Me): string {
         </div>
         <div class="field">
           <label class="field__label" for="exchangeDate">Datum der Bescherung</label>
-          <input class="field__input" id="exchangeDate" name="exchangeDate" type="date" min="${min}"
+          <input class="field__input" id="exchangeDate" name="exchangeDate" type="date" min="${localToday()}"
             value="${group.exchangeDate}" aria-describedby="exchangeDate-error" />
           <p class="field__error" id="exchangeDate-error"></p>
         </div>
@@ -100,10 +104,10 @@ export function wireManage(
   let busy = false;
 
   /** A refused action: show the current state, then say why. */
-  async function refused(error: keyof typeof manageErrorMessages, status: HTMLElement): Promise<void> {
+  async function refused(error: ManageError, status: HTMLElement, focus?: string): Promise<void> {
     if (error === "unknown_token") return onUnrecognised();
     const fresh = await fetchMe(token).catch(() => null);
-    if (fresh) rerender(fresh, { status: manageErrorMessages[error] });
+    if (fresh) rerender(fresh, { status: manageErrorMessages[error], focus });
     else status.textContent = manageErrorMessages[error];
   }
 
@@ -112,14 +116,15 @@ export function wireManage(
     status: HTMLElement,
     success: (me: Me) => string,
     focus?: string,
+    onFieldErrors?: (errors: GroupSettingsErrors) => void,
   ): Promise<void> {
     if (busy) return;
     busy = true;
     try {
       const result = await request();
       if (result.ok) rerender(result.me, { status: success(result.me), focus });
-      else if ("errors" in result) showSettingsErrors(form!, result.errors);
-      else await refused(result.error, status);
+      else if ("errors" in result) onFieldErrors?.(result.errors);
+      else await refused(result.error, status, focus);
     } catch {
       status.textContent = NETWORK_ERROR;
     } finally {
@@ -144,7 +149,7 @@ export function wireManage(
       if (button.dataset.confirm && !button.dataset.armed) {
         button.dataset.armed = "true";
         button.textContent = button.dataset.confirm;
-        peopleStatus.textContent = `${button.getAttribute("aria-label")}? Tipp zum Bestätigen noch einmal.`;
+        peopleStatus.textContent = `${button.getAttribute("aria-label")}? Zum Bestätigen noch einmal tippen.`;
         disarm = setTimeout(reset, 5000);
         return;
       }
@@ -170,7 +175,13 @@ export function wireManage(
     showSettingsErrors(form, checked.ok ? {} : checked.errors);
     if (!checked.ok) return;
 
-    void run(() => updateSettings(token, me.group.id, input), settingsStatus, () => "Budget und Datum sind gespeichert.", "settings");
+    void run(
+      () => updateSettings(token, me.group.id, input),
+      settingsStatus,
+      () => "Budget und Datum sind gespeichert.",
+      "settings",
+      (errors) => showSettingsErrors(form, errors),
+    );
   });
 }
 

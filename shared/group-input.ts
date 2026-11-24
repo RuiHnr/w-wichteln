@@ -65,13 +65,13 @@ function checkName(name: string, maxLength: number): ParticipantNameError | unde
   return undefined;
 }
 
-/** A real calendar date as YYYY-MM-DD, not before `today`. */
-function checkExchangeDate(raw: string, today: string): GroupInputError | undefined {
+/** A real calendar date as YYYY-MM-DD, not before `today` unless `allowPast`. */
+function checkExchangeDate(raw: string, today: string, allowPast = false): GroupInputError | undefined {
   if (!raw) return "required";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "invalid";
   const date = new Date(`${raw}T00:00:00Z`);
   if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== raw) return "invalid";
-  if (raw < today) return "past";
+  if (!allowPast && raw < today) return "past";
   return undefined;
 }
 
@@ -100,7 +100,7 @@ export function validateGroupSettings(raw: unknown, today: string, currentDate?:
   if (typeof budget === "string") errors.budget = budget;
 
   const exchangeDate = fieldText(raw, "exchangeDate");
-  const dateError = checkExchangeDate(exchangeDate, exchangeDate === currentDate ? exchangeDate : today);
+  const dateError = checkExchangeDate(exchangeDate, today, exchangeDate === currentDate);
   if (dateError) errors.exchangeDate = dateError;
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
