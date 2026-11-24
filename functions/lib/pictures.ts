@@ -6,6 +6,9 @@ import { findOrganizer } from "./manage";
 import { deletePictureObjects, newPictureKey } from "./picture-storage";
 import { hashToken } from "./tokens";
 
+/** Reads the uploaded image; null when it is over the size limit. Called only for callers who may upload. */
+export type Upload = () => Promise<Uint8Array | null>;
+
 export type PictureResult = { ok: true; me: Me } | { ok: false; reason: PictureError };
 
 export const pictureErrorStatus: Record<PictureError, number> = {
@@ -83,11 +86,12 @@ async function fresh(env: Env, token: string): Promise<PictureResult> {
 /**
  * Replaces the picture: rights first, then what the upload is, then the bucket. The new image is
  * stored before the row points at it, and the old one is deleted after, so the row never points
- * at a missing image. `bytes` is null when the upload was over the limit and left unread.
+ * at a missing image. The upload is read only once the caller is known to be allowed.
  */
-async function replace(env: Env, token: string | null, target: Target, bytes: Uint8Array | null): Promise<PictureResult> {
+async function replace(env: Env, token: string | null, target: Target, upload: Upload): Promise<PictureResult> {
   const allowed = await target.authorise();
   if (!allowed.ok) return allowed;
+  const bytes = await upload();
   const checked = validatePicture(bytes);
   if (!checked.ok) return { ok: false, reason: checked.error };
   if (!env.PICTURES) return { ok: false, reason: "unavailable" };
@@ -111,8 +115,8 @@ async function remove(env: Env, token: string | null, target: Target): Promise<P
 }
 
 /** Any organizer sets or replaces the Group Picture, in either phase. */
-export async function setGroupPicture(env: Env, token: string | null, groupId: string, bytes: Uint8Array | null) {
-  return replace(env, token, await groupTarget(env, token, groupId), bytes);
+export async function setGroupPicture(env: Env, token: string | null, groupId: string, upload: Upload) {
+  return replace(env, token, await groupTarget(env, token, groupId), upload);
 }
 
 /** Any organizer removes the Group Picture. */
@@ -121,8 +125,8 @@ export async function removeGroupPicture(env: Env, token: string | null, groupId
 }
 
 /** A participant sets or replaces their own Participant Picture, in either phase; nobody else may. */
-export async function setParticipantPicture(env: Env, token: string | null, groupId: string, participantId: string, bytes: Uint8Array | null) {
-  return replace(env, token, await participantTarget(env, token, groupId, participantId), bytes);
+export async function setParticipantPicture(env: Env, token: string | null, groupId: string, participantId: string, upload: Upload) {
+  return replace(env, token, await participantTarget(env, token, groupId, participantId), upload);
 }
 
 /** A participant removes their own Participant Picture; nobody else may. */
@@ -130,9 +134,30 @@ export async function removeParticipantPicture(env: Env, token: string | null, g
   return remove(env, token, await participantTarget(env, token, groupId, participantId));
 }
 
-/** Reads an upload's body unless it is announced as over the limit; null then, which `validatePicture` reports as too large. */
+/**
+ * Reads the body of an upload, stopping as soon as it is over `limit` bytes, whatever the
+ * request announces: null then, which `validatePicture` reports as too large.
+ */
 export async function readUpload(request: Request, limit: number): Promise<Uint8Array | null> {
-  const announced = Number(request.headers.get("content-length"));
-  if (announced > limit) return null;
-  return new Uint8Array(await request.arrayBuffer());
+  if (Number(request.headers.get("content-length")) > limit) return null;
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  const reader = request.body?.getReader();
+  while (reader) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return bytes;
 }

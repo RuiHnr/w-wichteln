@@ -245,11 +245,11 @@ describe("serving", () => {
     }
   });
 
-  it("serves with a long cache lifetime and without letting the browser guess the type", async () => {
+  it("serves with a short cache lifetime and without letting the browser guess the type", async () => {
     const { lea, groupId } = await groupOfThree();
     const url = (await (await putGroup(lea.token, groupId, PNG)).json<{ group: { picture: string } }>()).group.picture;
     const served = await fetchPicture(url);
-    expect(served.headers.get("cache-control")).toContain("immutable");
+    expect(served.headers.get("cache-control")).toContain("max-age=3600");
     expect(served.headers.get("x-content-type-options")).toBe("nosniff");
   });
 });

@@ -12,7 +12,7 @@ type Params = "groupId" | "participantId";
  * Answers with the caller's fresh view.
  */
 export const onRequestPut: PagesFunction<Env, Params> = async ({ request, env, params }) => {
-  const upload = await readUpload(request, MAX_PICTURE_BYTES);
+  const upload = () => readUpload(request, MAX_PICTURE_BYTES);
   const result = await setParticipantPicture(env, bearerToken(request), String(params.groupId), String(params.participantId), upload);
   return result.ok ? Response.json(result.me satisfies Me) : pictureErrorResponse(result.reason);
 };

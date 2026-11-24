@@ -3,7 +3,8 @@ import { PICTURE_KEY } from "../../../lib/picture-storage";
 
 /**
  * Serves a Group Picture or Participant Picture by its random key. Not behind a token: the
- * unguessable key is the protection. A key is never reused, so the answer never changes.
+ * unguessable key is the protection. A key is never reused; the cache lifetime is short so a
+ * removed picture does not linger in caches for long.
  */
 export const onRequestGet: PagesFunction<Env, "groupId" | "key"> = async ({ env, params }) => {
   const groupId = String(params.groupId);
@@ -16,7 +17,7 @@ export const onRequestGet: PagesFunction<Env, "groupId" | "key"> = async ({ env,
   return new Response(object.body, {
     headers: {
       "content-type": object.httpMetadata?.contentType ?? "application/octet-stream",
-      "cache-control": "public, max-age=31536000, immutable",
+      "cache-control": "public, max-age=3600",
       "x-content-type-options": "nosniff",
     },
   });

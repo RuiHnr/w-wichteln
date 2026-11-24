@@ -9,8 +9,7 @@ import { bearerToken } from "../../../lib/tokens";
  * (JPEG, PNG or WebP). Answers with the caller's fresh view.
  */
 export const onRequestPut: PagesFunction<Env, "groupId"> = async ({ request, env, params }) => {
-  const upload = await readUpload(request, MAX_PICTURE_BYTES);
-  const result = await setGroupPicture(env, bearerToken(request), String(params.groupId), upload);
+  const result = await setGroupPicture(env, bearerToken(request), String(params.groupId), () => readUpload(request, MAX_PICTURE_BYTES));
   return result.ok ? Response.json(result.me satisfies Me) : pictureErrorResponse(result.reason);
 };
 
