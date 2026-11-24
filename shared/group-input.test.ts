@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateGroupInput, validateParticipantName } from "./group-input";
+import { validateGroupInput, validateGroupSettings, validateParticipantName } from "./group-input";
 
 const today = "2026-11-24";
 const valid = { name: "WG Weihnachten", budget: "20", exchangeDate: "2026-12-20", organizerName: "Lea" };
@@ -78,5 +78,22 @@ describe("validateParticipantName", () => {
     expect(validateParticipantName(" ")).toEqual({ ok: false, error: "required" });
     expect(validateParticipantName(undefined)).toEqual({ ok: false, error: "required" });
     expect(validateParticipantName("y".repeat(41))).toEqual({ ok: false, error: "tooLong" });
+  });
+});
+
+describe("validateGroupSettings", () => {
+  it("returns budget in cents and the date", () => {
+    expect(validateGroupSettings({ budget: "12,50", exchangeDate: "2026-12-20" }, today)).toEqual({
+      ok: true,
+      value: { budgetCents: 1250, exchangeDate: "2026-12-20" },
+    });
+  });
+
+  it("rejects a new date in the past but keeps the current one even when it has passed", () => {
+    expect(validateGroupSettings({ budget: "20", exchangeDate: "2026-11-01" }, today)).toEqual({
+      ok: false,
+      errors: { exchangeDate: "past" },
+    });
+    expect(validateGroupSettings({ budget: "20", exchangeDate: "2026-11-01" }, today, "2026-11-01").ok).toBe(true);
   });
 });

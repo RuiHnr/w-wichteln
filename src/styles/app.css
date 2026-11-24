@@ -294,3 +294,48 @@ html {
   font-size: var(--text-sm);
   font-weight: 600;
 }
+
+/* Organizer controls on a participant row: name first, buttons under it on a phone */
+.people__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.people__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.btn--small {
+  padding-inline: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.btn--danger {
+  background: transparent;
+  color: var(--p-danger);
+  border-color: color-mix(in srgb, var(--p-danger) 45%, transparent);
+}
+
+.btn--danger[data-armed] {
+  background: var(--p-danger);
+  color: var(--p-accent-ink);
+  border-color: var(--p-danger);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--danger:not([data-armed]):hover {
+    background: color-mix(in srgb, var(--p-danger) 12%, transparent);
+    border-color: var(--p-danger);
+  }
+}
+
+.btn--secondary[data-armed] {
+  border-color: var(--p-accent);
+  color: var(--p-accent);
+}
