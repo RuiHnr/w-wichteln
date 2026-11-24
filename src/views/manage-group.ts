@@ -6,25 +6,14 @@ import { addExclusion, drawGroup, fetchMe, removeExclusion, removeParticipant, r
 import { escapeHtml } from "../html";
 import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErrorMessages, NETWORK_ERROR } from "../messages";
 import { localToday } from "../today";
+import type { Rerender } from "./page-actions";
+import { onConfirmedClick } from "./page-actions";
 
 /**
  * The organizer's controls on the group page: the draw and its reset, budget and date, per participant
  * the Organizer role and removal, and the exclusions. Only wired up for organizers; the API
  * enforces the same rules.
  */
-
-/**
- * What happened after an organizer action, and which control (by `data-focus`) keeps the
- * focus; `fallback` when that control is gone from the fresh view.
- */
-export interface AfterAction {
-  status: string;
-  focus?: string;
-  fallback?: string;
-}
-
-/** How the group page shows the caller's fresh view after an action. */
-export type Rerender = (me: Me, after: AfterAction) => void;
 
 const settingsFields: GroupSettingsField[] = ["budget", "exchangeDate"];
 
@@ -145,34 +134,6 @@ function actionButton(action: Action, p: ParticipantView, label: string, ariaLab
   const variant = action === "remove" ? "btn--danger" : "btn--secondary";
   return `<button class="btn ${variant} btn--small" type="button" data-action="${action}" data-id="${escapeHtml(p.id)}"
     data-focus="${action}-${escapeHtml(p.id)}" aria-label="${ariaLabel}"${confirm ? ` data-confirm="${confirm}"` : ""}>${label}</button>`;
-}
-
-/**
- * With `data-confirm`, the first press arms the button and says so in `status`; only a second
- * press within 5 seconds calls `act`. Without it, every press acts.
- */
-export function onConfirmedClick(button: HTMLButtonElement, status: HTMLElement, act: () => void): void {
-  const label = button.textContent!;
-  let disarm: ReturnType<typeof setTimeout> | undefined;
-
-  const reset = () => {
-    clearTimeout(disarm);
-    delete button.dataset.armed;
-    button.textContent = label;
-  };
-  button.addEventListener("blur", reset);
-
-  button.addEventListener("click", () => {
-    if (button.dataset.confirm && !button.dataset.armed) {
-      button.dataset.armed = "true";
-      button.textContent = button.dataset.confirm;
-      status.textContent = `${button.getAttribute("aria-label")}? Zum Bestätigen noch einmal tippen.`;
-      disarm = setTimeout(reset, 5000);
-      return;
-    }
-    reset();
-    act();
-  });
 }
 
 function successMessage(action: Action, p: ParticipantView, me: Me): string {

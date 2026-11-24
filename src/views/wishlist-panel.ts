@@ -3,7 +3,7 @@ import { MAX_WISHLIST_LENGTH, validateWishlist } from "../../shared/wishlist";
 import { saveWishlist } from "../api";
 import { escapeHtml } from "../html";
 import { NETWORK_ERROR, wishlistErrorMessages, wishlistLengthHint } from "../messages";
-import type { Rerender } from "./manage-group";
+import type { Rerender } from "./page-actions";
 
 /**
  * The Wishlist on the group page: everyone writes their own, in either phase, and after the

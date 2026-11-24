@@ -209,6 +209,13 @@ const PARTICIPANT_COUNT = "(SELECT COUNT(*) FROM participants p WHERE p.group_id
 const DROP_ASSIGNMENTS_IF_OPEN =
   "DELETE FROM assignments WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'";
 
+/**
+ * SQL: an open group has no swap requests, open or completed, so drop any it has; with the
+ * completed ones gone every Swap Limit count is 0. Binds group id twice.
+ */
+const DROP_SWAP_REQUESTS_IF_OPEN =
+  "DELETE FROM swap_requests WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'";
+
 /** How often the draw is retried when the group changed while it was being drawn. */
 const DRAW_ATTEMPTS = 3;
 
@@ -300,7 +307,7 @@ export async function resetGroup(db: D1Database, token: string, groupId: string)
       .prepare(DROP_ASSIGNMENTS_IF_OPEN)
       .bind(groupId, groupId),
     db
-      .prepare("DELETE FROM swap_requests WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'")
+      .prepare(DROP_SWAP_REQUESTS_IF_OPEN)
       .bind(groupId, groupId),
   ]);
   if (reopened.results.length === 1) return changed(db, token);

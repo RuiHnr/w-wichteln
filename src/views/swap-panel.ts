@@ -3,8 +3,8 @@ import type { SwapActionResult } from "../api";
 import { acceptSwapRequest, declineSwapRequest, fetchMe, sendSwapRequest, withdrawSwapRequest } from "../api";
 import { escapeHtml } from "../html";
 import { NETWORK_ERROR, swapErrorMessages } from "../messages";
-import type { Rerender } from "./manage-group";
-import { onConfirmedClick } from "./manage-group";
+import type { Rerender } from "./page-actions";
+import { onConfirmedClick } from "./page-actions";
 
 /**
  * The Swap on the group page, once it is drawn: a giver asks another giver by name, the other
@@ -85,9 +85,11 @@ function requestForm(me: Me, belowIncoming: boolean): string {
       <form class="form" novalidate data-swap-form>
         <div class="field">
           <label class="field__label" for="swap-receiver">Mit wem möchtest du tauschen?</label>
-          <select class="field__input field__select" id="swap-receiver" name="receiverId">
+          <select class="field__input field__select" id="swap-receiver" name="receiverId" aria-describedby="swap-receiver-error">
+            <option value="" selected disabled>Person wählen</option>
             ${others.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("")}
           </select>
+          <p class="field__error" id="swap-receiver-error"></p>
         </div>
         <button class="btn btn--secondary form__submit" type="submit" data-focus="swap-send">Tauschanfrage senden</button>
       </form>`;
@@ -127,6 +129,15 @@ export function wireSwaps(main: HTMLElement, me: Me, token: string, rerender: Re
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
     const receiverId = String(new FormData(form).get("receiverId") ?? "");
+    const select = form.querySelector<HTMLSelectElement>("#swap-receiver")!;
+    const error = form.querySelector<HTMLElement>("#swap-receiver-error")!;
+    if (!receiverId) {
+      error.textContent = "Wähl aus, mit wem du tauschen möchtest.";
+      select.setAttribute("aria-invalid", "true");
+      return select.focus();
+    }
+    error.textContent = "";
+    select.removeAttribute("aria-invalid");
     void run(() => sendSwapRequest(token, receiverId), `Tauschanfrage an ${nameOf(receiverId)} gesendet.`, "swap-withdraw", "swap-send");
   });
 

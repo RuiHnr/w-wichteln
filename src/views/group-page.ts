@@ -6,7 +6,7 @@ import { createRevealStore, initialRevealState, prefersReducedMotion } from "../
 import { drawPanel, resetPanel } from "./draw-panel";
 import { wireGiftReveal } from "./gift-reveal";
 import { groupFacts, phaseLabel } from "./group-facts";
-import type { AfterAction } from "./manage-group";
+import type { AfterAction } from "./page-actions";
 import { exclusionsPanel, participantActions, settingsPanel, wireManage } from "./manage-group";
 import { swapPanel, wireSwaps } from "./swap-panel";
 import { wireWishlist, wishlistPanel } from "./wishlist-panel";

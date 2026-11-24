@@ -65,14 +65,37 @@ export async function sendSwapRequest(db: D1Database, token: string, receiverId:
   if (!check.ok) return check;
 
   try {
+    // Only while everything checked is as read: a reset and new draw, or a swap of either
+    // giver committed meanwhile, would otherwise leave a request the expiry already passed by.
     const inserted = await db
       .prepare(
         `INSERT INTO swap_requests (id, group_id, sender_id, receiver_id)
-         SELECT ?, g.id, ?, ? FROM groups g WHERE g.id = ? AND g.phase = 'drawn'`,
+         SELECT ?, g.id, ?, ? FROM groups g
+          WHERE g.id = ? AND g.phase = 'drawn' AND g.swap_limit = ?
+            AND (SELECT recipient_id FROM assignments a WHERE a.giver_id = ?) = ?
+            AND (SELECT recipient_id FROM assignments a WHERE a.giver_id = ?) = ?
+            AND ${completedSwapsOf("?")} = ? AND ${completedSwapsOf("?")} = ?`,
       )
-      .bind(crypto.randomUUID(), caller.id, receiver.id, caller.group_id)
+      .bind(
+        crypto.randomUUID(),
+        caller.id,
+        receiver.id,
+        caller.group_id,
+        caller.swap_limit,
+        caller.id,
+        caller.recipient_id,
+        receiver.id,
+        receiver.recipient_id,
+        // completedSwapsOf names its participant twice
+        caller.id,
+        caller.id,
+        caller.completed,
+        receiver.id,
+        receiver.id,
+        receiver.completed,
+      )
       .run();
-    if (inserted.meta.changes !== 1) return { ok: false, reason: "not_drawn" };
+    if (inserted.meta.changes !== 1) return { ok: false, reason: "changed" };
   } catch (error) {
     // Two requests sent at the same moment: the partial unique index lets only one stay open.
     if (!String(error).includes("UNIQUE")) throw error;
