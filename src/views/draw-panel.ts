@@ -29,6 +29,28 @@ function startDraw(me: Me): string {
         data-confirm="Wirklich auslosen?" aria-label="Jetzt auslosen">Jetzt auslosen</button>`;
 }
 
+/**
+ * The Reset for organizers of a drawn group. The button opens a dialog that says what a
+ * reset does; only its confirm button resets.
+ */
+export function resetPanel(): string {
+  return `
+    <section class="panel stack" aria-labelledby="reset-heading">
+      <h2 class="panel__title" id="reset-heading">Zurücksetzen</h2>
+      <p class="panel__text">Hat jemand abgesagt oder fehlt noch wer? Setz die Auslosung zurück. Dann ist die Anmeldung wieder offen, du kannst Teilnehmer und Ausschlüsse ändern und neu auslosen.</p>
+      <button class="btn btn--danger reset__open" type="button" data-reset-open>Auslosung zurücksetzen</button>
+      <dialog class="dialog stack" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-text" data-reset-dialog>
+        <h2 class="panel__title" id="reset-dialog-title">Auslosung zurücksetzen?</h2>
+        <p class="panel__text" id="reset-dialog-text">Alle Zuteilungen werden gelöscht. Bei der nächsten Auslosung bekommt jeder einen neuen Beschenkten, auch wer seinen schon kennt.</p>
+        <div class="dialog__actions">
+          <button class="btn btn--secondary" type="button" data-reset-cancel autofocus>Abbrechen</button>
+          <button class="btn btn--danger btn--danger-fill" type="button" data-reset-confirm>Zurücksetzen</button>
+        </div>
+      </dialog>
+      <p class="form__status" role="status" data-reset-status></p>
+    </section>`;
+}
+
 function recipientPanel(name: string): string {
   return `
     <section class="panel stack draw" aria-labelledby="draw-heading">

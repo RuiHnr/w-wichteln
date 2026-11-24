@@ -1,7 +1,7 @@
 import type { Me } from "../../shared/api";
 import { escapeHtml, showMessage, showView } from "../html";
 import { inviteLink, personalLink } from "../links";
-import { drawPanel } from "./draw-panel";
+import { drawPanel, resetPanel } from "./draw-panel";
 import { groupFacts, phaseLabel } from "./group-facts";
 import type { AfterAction } from "./manage-group";
 import { exclusionsPanel, participantActions, settingsPanel, wireManage } from "./manage-group";
@@ -48,7 +48,7 @@ function markup(me: Me, token: string): string {
 
       ${participantList(me)}
 
-      ${group.phase === "open" ? drawPanel(me) : ""}
+      ${group.phase === "open" ? drawPanel(me) : participant.isOrganizer ? resetPanel() : ""}
 
       ${participant.isOrganizer ? exclusionsPanel(me) : ""}
 

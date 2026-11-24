@@ -2,13 +2,13 @@ import type { ExclusionView, ManageError, Me, ParticipantView } from "../../shar
 import type { GroupSettingsErrors, GroupSettingsField } from "../../shared/group-input";
 import { validateGroupSettings } from "../../shared/group-input";
 import type { OrganizerActionResult } from "../api";
-import { addExclusion, drawGroup, fetchMe, removeExclusion, removeParticipant, setOrganizer, updateSettings } from "../api";
+import { addExclusion, drawGroup, fetchMe, removeExclusion, removeParticipant, resetGroup, setOrganizer, updateSettings } from "../api";
 import { escapeHtml } from "../html";
 import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErrorMessages } from "../messages";
 import { localToday } from "../today";
 
 /**
- * The organizer's controls on the group page: the draw, budget and date, per participant
+ * The organizer's controls on the group page: the draw and its reset, budget and date, per participant
  * the Organizer role and removal, and the exclusions. Only wired up for organizers; the API
  * enforces the same rules.
  */
@@ -83,7 +83,7 @@ export function exclusionsPanel(me: Me): string {
     : `<p class="panel__text">Noch keine Ausschlüsse.</p>`;
 
   let footer: string;
-  if (!open) footer = `<p class="panel__text">Nach der Auslosung lassen sich Ausschlüsse nicht mehr ändern.</p>`;
+  if (!open) footer = `<p class="panel__text">Nach der Auslosung lassen sich Ausschlüsse nicht mehr ändern. Setz die Auslosung zurück, um sie anzupassen.</p>`;
   else if (me.participants.length < 2) footer = `<p class="panel__text">Sobald zwei Teilnehmer dabei sind, kannst du hier Ausschlüsse festlegen.</p>`;
   else footer = exclusionForm(me);
 
@@ -251,7 +251,36 @@ export function wireManage(
     });
   }
 
+  wireReset();
   wireExclusions();
+
+  function wireReset(): void {
+    const open = main.querySelector<HTMLButtonElement>("[data-reset-open]");
+    if (!open) return;
+    const dialog = main.querySelector<HTMLDialogElement>("[data-reset-dialog]")!;
+    const status = main.querySelector<HTMLElement>("[data-reset-status]")!;
+    open.addEventListener("click", () => dialog.showModal());
+    dialog.querySelector("[data-reset-cancel]")!.addEventListener("click", () => dialog.close());
+    // A click on the backdrop cancels too. It lands on the dialog itself, as does one on its padding, so check where.
+    dialog.addEventListener("click", (event) => {
+      if (event.target !== dialog) return;
+      const box = dialog.getBoundingClientRect();
+      const inside = event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+      if (!inside) dialog.close();
+    });
+    dialog.querySelector("[data-reset-confirm]")!.addEventListener("click", () => {
+      dialog.close();
+      // The group is open again: focus goes to the start button of the draw, or its heading when too few are left.
+      void run(
+        () => resetGroup(token, me.group.id),
+        status,
+        () => "Zurückgesetzt. Die Anmeldung ist wieder offen.",
+        "draw-start",
+        undefined,
+        "draw",
+      );
+    });
+  }
 
   function wireExclusions(): void {
     const status = main.querySelector<HTMLElement>("[data-exclusions-status]")!;

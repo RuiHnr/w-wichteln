@@ -75,6 +75,7 @@ export type ManageError =
   | "unknown_participant"
   | "unknown_exclusion"
   | "drawn"
+  | "not_drawn"
   | "last_organizer"
   | "self"
   | "too_few"

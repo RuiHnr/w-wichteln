@@ -205,6 +205,10 @@ export async function removeExclusion(
 /** SQL: the number of participants of the `groups` row in scope. */
 const PARTICIPANT_COUNT = "(SELECT COUNT(*) FROM participants p WHERE p.group_id = groups.id)";
 
+/** SQL: an open group has no assignments, so drop any rows it has. Binds group id twice. */
+const DROP_ASSIGNMENTS_IF_OPEN =
+  "DELETE FROM assignments WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'";
+
 /** How often the draw is retried when the group changed while it was being drawn. */
 const DRAW_ATTEMPTS = 3;
 
@@ -271,11 +275,35 @@ async function writeDraw(db: D1Database, tokenHash: string, groupId: string, ass
       .bind(groupId),
     // A group that is still open has no assignments: drop the rows of a draw that did not go through.
     db
-      .prepare("DELETE FROM assignments WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'")
+      .prepare(DROP_ASSIGNMENTS_IF_OPEN)
       .bind(groupId, groupId),
   ];
   const [, drawn] = await db.batch(statements);
   return drawn.results.length === 1;
+}
+
+/**
+ * The Reset: discards all assignments of a drawn group and returns it to Open, so people
+ * can join, be removed and exclusions change before the next draw. Since nobody sees the
+ * full list (ADR 0003), this is also how any mistake after the draw is fixed.
+ *
+ * One transaction: the group is reopened only while drawn and the caller an organizer,
+ * and then its rows go, since an open group has no assignments.
+ */
+export async function resetGroup(db: D1Database, token: string, groupId: string): Promise<ManageResult> {
+  const [reopened] = await db.batch([
+    db
+      .prepare(`UPDATE groups SET phase = 'open' WHERE id = ? AND phase = 'drawn' AND ${CALLER_IS_ORGANIZER} RETURNING id`)
+      .bind(groupId, await hashToken(token), groupId),
+    db
+      .prepare(DROP_ASSIGNMENTS_IF_OPEN)
+      .bind(groupId, groupId),
+  ]);
+  if (reopened.results.length === 1) return changed(db, token);
+
+  const caller = await findOrganizer(db, token, groupId);
+  if (!caller.ok) return caller;
+  return { ok: false, reason: caller.me.group.phase === "open" ? "not_drawn" : "not_organizer" };
 }
 
 const statusOf: Record<ManageError, number> = {
@@ -284,6 +312,7 @@ const statusOf: Record<ManageError, number> = {
   unknown_participant: 404,
   unknown_exclusion: 404,
   drawn: 409,
+  not_drawn: 409,
   last_organizer: 409,
   self: 409,
   too_few: 409,
