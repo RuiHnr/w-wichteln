@@ -41,6 +41,7 @@ describe("POST /api/groups", () => {
         exchangeDate: "2099-12-20",
         phase: "open",
         inviteCode: expect.any(String),
+        swapLimit: 1,
       },
       participant: { id: expect.any(String), name: "Lea", isOrganizer: true },
       wishlist: "",

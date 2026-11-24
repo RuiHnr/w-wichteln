@@ -1,8 +1,8 @@
 import type { ExclusionView, ManageError, Me, ParticipantView } from "../../shared/api";
 import type { GroupSettingsErrors, GroupSettingsField } from "../../shared/group-input";
-import { validateGroupSettings } from "../../shared/group-input";
+import { MAX_SWAP_LIMIT, validateGroupSettings } from "../../shared/group-input";
 import type { OrganizerActionResult } from "../api";
-import { addExclusion, drawGroup, fetchMe, removeExclusion, removeParticipant, resetGroup, setOrganizer, updateSettings } from "../api";
+import { addExclusion, drawGroup, fetchMe, removeExclusion, removeParticipant, resetGroup, setOrganizer, updateSettings, updateSwapLimit } from "../api";
 import { escapeHtml } from "../html";
 import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErrorMessages, NETWORK_ERROR } from "../messages";
 import { localToday } from "../today";
@@ -42,6 +42,24 @@ export function settingsPanel({ group }: Me): string {
         <button class="btn btn--primary form__submit" type="submit" data-focus="settings">Änderungen speichern</button>
         <p class="form__status" role="status" data-settings-status></p>
       </form>
+    </section>`;
+}
+
+/** The panel to set the Tausch-Limit, 0 to 5; each choice is saved as soon as it is made. */
+export function swapLimitPanel({ group }: Me): string {
+  const options = Array.from({ length: MAX_SWAP_LIMIT + 1 }, (_, n) => {
+    const checked = n === group.swapLimit;
+    return `<label class="segment"><input class="segment__input" type="radio" name="swapLimit" value="${n}"${checked ? ` checked data-focus="swap-limit"` : ""} /><span class="segment__label">${n}</span></label>`;
+  }).join("");
+  return `
+    <section class="panel stack" aria-labelledby="swap-limit-heading">
+      <h2 class="panel__title" id="swap-limit-heading" tabindex="-1" data-focus="swap-limit-heading">Tausch-Limit</h2>
+      <p class="panel__text">So viele Tausche darf jede Person höchstens machen. Bei 0 ist Tauschen ausgeschaltet. Was schon getauscht ist, bleibt bestehen.</p>
+      <fieldset class="segments" data-swap-limit>
+        <legend class="visually-hidden">Tausch-Limit</legend>
+        ${options}
+      </fieldset>
+      <p class="form__status" role="status" data-swap-limit-status></p>
     </section>`;
 }
 
@@ -212,6 +230,18 @@ export function wireManage(
 
   wireReset();
   wireExclusions();
+  wireSwapLimit();
+
+  function wireSwapLimit(): void {
+    const fieldset = main.querySelector<HTMLFieldSetElement>("[data-swap-limit]");
+    if (!fieldset) return;
+    const status = main.querySelector<HTMLElement>("[data-swap-limit-status]")!;
+    fieldset.addEventListener("change", (event) => {
+      const limit = Number((event.target as HTMLInputElement).value);
+      const success = () => (limit === 0 ? "Tauschen ist ausgeschaltet." : `Tausch-Limit auf ${limit} gesetzt.`);
+      void run(() => updateSwapLimit(token, me.group.id, limit), status, success, "swap-limit", undefined, "swap-limit-heading");
+    });
+  }
 
   function wireReset(): void {
     const open = main.querySelector<HTMLButtonElement>("[data-reset-open]");

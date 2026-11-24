@@ -2,7 +2,7 @@ import type { ManageError, Me } from "../../shared/api";
 import type { GroupSettings } from "../../shared/group-input";
 import { MIN_PARTICIPANTS_TO_DRAW } from "../../shared/draw";
 import { type Assignments, drawAssignments } from "./draw";
-import { findMe } from "./groups";
+import { completedSwapsOf, findMe } from "./groups";
 import { hashToken } from "./tokens";
 
 /**
@@ -85,6 +85,31 @@ export async function updateGroupSettings(
     .bind(settings.budgetCents, settings.exchangeDate, groupId, await hashToken(token), groupId)
     .run();
   if (updated.meta.changes === 1) return changed(db, token);
+  const caller = await findOrganizer(db, token, groupId);
+  return { ok: false, reason: caller.ok ? "not_organizer" : caller.reason };
+}
+
+/**
+ * Sets the Swap Limit, in either phase. Completed swaps stay whatever the new limit. Open
+ * requests that could no longer be accepted, because the sender or the receiver already
+ * took part in as many swaps as the new limit allows (all of them at 0), expire in the
+ * same transaction rather than lingering where nobody can act on them.
+ */
+export async function setSwapLimit(db: D1Database, token: string, groupId: string, swapLimit: number): Promise<ManageResult> {
+  const tokenHash = await hashToken(token);
+  const [updated] = await db.batch([
+    db
+      .prepare(`UPDATE groups SET swap_limit = ? WHERE id = ? AND ${CALLER_IS_ORGANIZER} RETURNING id`)
+      .bind(swapLimit, groupId, tokenHash, groupId),
+    db
+      .prepare(
+        `DELETE FROM swap_requests
+          WHERE group_id = ? AND status = 'open' AND ${CALLER_IS_ORGANIZER}
+            AND (${completedSwapsOf("swap_requests.sender_id")} >= ? OR ${completedSwapsOf("swap_requests.receiver_id")} >= ?)`,
+      )
+      .bind(groupId, tokenHash, groupId, swapLimit, swapLimit),
+  ]);
+  if (updated.results.length === 1) return changed(db, token);
   const caller = await findOrganizer(db, token, groupId);
   return { ok: false, reason: caller.ok ? "not_organizer" : caller.reason };
 }

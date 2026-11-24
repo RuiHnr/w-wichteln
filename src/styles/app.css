@@ -340,6 +340,77 @@ html {
   color: var(--p-accent);
 }
 
+/* Tausch-Limit: 0 to 5 as one row of radio buttons, each at least 44px */
+.segments {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(2.75rem, 1fr));
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Six 44px buttons need 304px; narrower panels get two rows of three */
+@media (max-width: 23.9rem) {
+  .segments {
+    grid-template-columns: repeat(3, minmax(2.75rem, 1fr));
+  }
+}
+
+.segment {
+  position: relative;
+  display: grid;
+}
+
+.segment__input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segment__label {
+  display: grid;
+  place-items: center;
+  min-height: 2.75rem;
+  border: 1px solid var(--p-line);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  transition: background-color 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.segment__input:checked + .segment__label {
+  background: var(--p-accent);
+  border-color: var(--p-accent);
+  color: var(--p-accent-ink);
+}
+
+.segment__input:focus-visible + .segment__label {
+  outline: 2px solid var(--p-accent-soft);
+  outline-offset: 2px;
+}
+
+.segment__input:active + .segment__label {
+  transform: scale(0.96);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .segment__input:not(:checked):hover + .segment__label {
+    border-color: var(--p-accent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segment__label {
+    transition: none;
+  }
+  .segment__input:active + .segment__label {
+    transform: none;
+  }
+}
+
 /* Exclusions: a pair a row, two pickers side by side from 480px */
 .exclusion__sep {
   color: var(--p-accent);

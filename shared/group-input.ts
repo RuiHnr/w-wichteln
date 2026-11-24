@@ -75,6 +75,16 @@ function checkExchangeDate(raw: string, today: string, allowPast = false): Group
   return undefined;
 }
 
+export const MIN_SWAP_LIMIT = 0;
+export const MAX_SWAP_LIMIT = 5;
+export const DEFAULT_SWAP_LIMIT = 1;
+
+/** The Swap Limit as an organizer sends it: a whole number from 0 (swapping off) to 5. */
+export function validateSwapLimit(raw: unknown): number | null {
+  const value = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>).swapLimit : undefined;
+  return typeof value === "number" && Number.isInteger(value) && value >= MIN_SWAP_LIMIT && value <= MAX_SWAP_LIMIT ? value : null;
+}
+
 /** The settings an organizer can change at any time. */
 export interface GroupSettings {
   budgetCents: number;
