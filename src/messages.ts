@@ -1,3 +1,4 @@
+import type { JoinNameError } from "../shared/api";
 import type { GroupField, GroupInputError } from "../shared/group-input";
 import { MAX_BUDGET_EUROS, MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH } from "../shared/group-input";
 
@@ -23,6 +24,12 @@ export const fieldErrorMessages: Record<GroupField, Partial<Record<GroupInputErr
     tooLong: `Dein Name darf höchstens ${MAX_PARTICIPANT_NAME_LENGTH} Zeichen lang sein.`,
   },
 };
+
+/** What to tell someone whose name cannot be used to join, in German. */
+export function joinNameErrorMessage(error: JoinNameError): string {
+  if (error === "taken") return "Diesen Namen gibt es in der Gruppe schon. Häng zum Beispiel deinen Nachnamen an.";
+  return fieldErrorMessages.organizerName[error]!;
+}
 
 export function fieldErrorMessage(field: GroupField, error: GroupInputError): string {
   return fieldErrorMessages[field][error] ?? "Prüf deine Eingabe.";

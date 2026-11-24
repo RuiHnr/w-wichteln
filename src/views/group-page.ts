@@ -1,9 +1,22 @@
 import type { Me } from "../../shared/api";
 import { escapeHtml, showMessage, showView } from "../html";
 import { inviteLink, personalLink } from "../links";
-import { formatBudget, formatDate } from "../messages";
+import { groupFacts, phaseLabel } from "./group-facts";
 
-const phaseLabel = { open: "Anmeldung offen", drawn: "Ausgelost" } as const;
+function participantList(me: Me): string {
+  const items = me.participants
+    .map((p) => {
+      const you = p.id === me.participant.id ? ` <span class="people__tag">du</span>` : "";
+      const organizer = p.isOrganizer ? ` <span class="people__tag">Organisator</span>` : "";
+      return `<li class="people__item">${escapeHtml(p.name)}${you}${organizer}</li>`;
+    })
+    .join("");
+  return `
+    <section class="panel stack" aria-labelledby="participants-heading">
+      <h2 class="panel__title" id="participants-heading">Teilnehmer <span class="panel__count">${me.participants.length}</span></h2>
+      <ul class="people" role="list">${items}</ul>
+    </section>`;
+}
 
 function linkRow(id: string, buttonLabel: string, copiedMessage: string, url: string): string {
   return `
@@ -23,18 +36,17 @@ function markup(me: Me, token: string): string {
       <header class="view__head">
         <p class="view__eyebrow">${phaseLabel[group.phase]}</p>
         <h1 class="view__title" tabindex="-1">${escapeHtml(group.name)}</h1>
-        <dl class="facts">
-          <div class="facts__item"><dt>Budget</dt><dd>${formatBudget(group.budgetCents)}</dd></div>
-          <div class="facts__item"><dt>Bescherung</dt><dd>${formatDate(group.exchangeDate)}</dd></div>
-          <div class="facts__item"><dt>Du</dt><dd>${escapeHtml(participant.name)} · ${role}</dd></div>
-        </dl>
+        ${groupFacts(group, `<div class="facts__item"><dt>Du</dt><dd>${escapeHtml(participant.name)} · ${role}</dd></div>`)}
       </header>
 
+      ${participantList(me)}
+
+      ${group.phase === "open" ? `
       <section class="panel stack" aria-labelledby="invite-link-heading">
         <h2 class="panel__title" id="invite-link-heading">Einladungslink</h2>
         <p class="panel__text">Schick diesen Link an alle, die mitwichteln sollen.</p>
         ${linkRow("invite-link", "Einladungslink kopieren", "Einladungslink kopiert.", inviteLink(group.inviteCode))}
-      </section>
+      </section>` : ""}
 
       <section class="panel stack" aria-labelledby="personal-link-heading">
         <h2 class="panel__title" id="personal-link-heading">Persönlicher Link</h2>

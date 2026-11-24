@@ -40,6 +40,17 @@ function parseBudgetCents(raw: string): number | GroupInputError {
   return cents;
 }
 
+export type ParticipantNameError = "required" | "tooLong";
+
+export type ParticipantNameResult = { ok: true; value: string } | { ok: false; error: ParticipantNameError };
+
+/** The name someone joins a group under: trimmed, not empty, at most 40 characters. */
+export function validateParticipantName(raw: unknown): ParticipantNameResult {
+  const name = typeof raw === "string" ? raw.trim() : "";
+  const error = checkName(name, MAX_PARTICIPANT_NAME_LENGTH);
+  return error ? { ok: false, error } : { ok: true, value: name };
+}
+
 export type GroupInputResult = { ok: true; value: GroupInput } | { ok: false; errors: GroupInputErrors };
 
 /** Trimmed text of a field; anything that is not a string counts as empty. */
@@ -48,7 +59,7 @@ function fieldText(source: unknown, field: GroupField): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function checkName(name: string, maxLength: number): GroupInputError | undefined {
+function checkName(name: string, maxLength: number): ParticipantNameError | undefined {
   if (!name) return "required";
   if ([...name].length > maxLength) return "tooLong";
   return undefined;
