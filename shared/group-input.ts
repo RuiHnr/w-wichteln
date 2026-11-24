@@ -43,7 +43,7 @@ function parseBudgetCents(raw: string): number | GroupInputError {
 export type GroupInputResult = { ok: true; value: GroupInput } | { ok: false; errors: GroupInputErrors };
 
 /** Trimmed text of a field; anything that is not a string counts as empty. */
-function text(source: unknown, field: GroupField): string {
+function fieldText(source: unknown, field: GroupField): string {
   const value = typeof source === "object" && source !== null ? (source as Record<string, unknown>)[field] : undefined;
   return typeof value === "string" ? value.trim() : "";
 }
@@ -70,18 +70,18 @@ function checkExchangeDate(raw: string, today: string): GroupInputError | undefi
 export function validateGroupInput(raw: unknown, today: string): GroupInputResult {
   const errors: GroupInputErrors = {};
 
-  const name = text(raw, "name");
+  const name = fieldText(raw, "name");
   const nameError = checkName(name, MAX_GROUP_NAME_LENGTH);
   if (nameError) errors.name = nameError;
 
-  const budget = parseBudgetCents(text(raw, "budget"));
+  const budget = parseBudgetCents(fieldText(raw, "budget"));
   if (typeof budget === "string") errors.budget = budget;
 
-  const exchangeDate = text(raw, "exchangeDate");
+  const exchangeDate = fieldText(raw, "exchangeDate");
   const dateError = checkExchangeDate(exchangeDate, today);
   if (dateError) errors.exchangeDate = dateError;
 
-  const organizerName = text(raw, "organizerName");
+  const organizerName = fieldText(raw, "organizerName");
   const organizerNameError = checkName(organizerName, MAX_PARTICIPANT_NAME_LENGTH);
   if (organizerNameError) errors.organizerName = organizerNameError;
 

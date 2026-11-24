@@ -1,5 +1,5 @@
 import type { Me } from "../../shared/api";
-import { escapeHtml, showView } from "../html";
+import { escapeHtml, showMessage, showView } from "../html";
 import { inviteLink, personalLink } from "../links";
 import { formatBudget, formatDate } from "../messages";
 
@@ -78,14 +78,10 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string): void 
 
 /** Shown when this browser has no (valid) token for the group in the address bar. */
 export function renderNotRecognised(main: HTMLElement): void {
-  showView(
+  showMessage(
     main,
-    `<section class="view">
-      <header class="view__head">
-        <h1 class="view__title" tabindex="-1">Du bist in dieser Gruppe nicht angemeldet</h1>
-        <p class="view__lead">Öffne deinen persönlichen Link, dann erkennt dich dieses Gerät wieder.</p>
-      </header>
-      <a class="btn btn--secondary" href="/">Neue Gruppe anlegen</a>
-    </section>`,
+    "Du bist in dieser Gruppe nicht angemeldet",
+    "Öffne deinen persönlichen Link, dann erkennt dich dieses Gerät wieder.",
+    { href: "/", label: "Neue Gruppe anlegen" },
   );
 }

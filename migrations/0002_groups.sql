@@ -22,5 +22,3 @@ CREATE TABLE participants (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   UNIQUE (group_id, name)
 );
-
-CREATE INDEX participants_group_id ON participants (group_id);

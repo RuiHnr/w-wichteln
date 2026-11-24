@@ -33,6 +33,11 @@ One Secret Santa round among a set of participants, with a budget and a gift-exc
 _UI_: Gruppe
 _Avoid_: Event, room, party
 
+**Exchange Date**:
+The day the participants of a group hand over their presents.
+_UI_: Datum der Bescherung
+_Avoid_: Event date, deadline
+
 **Invite Link**:
 The shared link through which anyone can join a group while it is open.
 _UI_: Einladungslink

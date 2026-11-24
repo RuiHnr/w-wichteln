@@ -2,10 +2,16 @@ import type { CreateGroupResponse } from "../../shared/api";
 import type { GroupField, GroupInputErrors, RawGroupInput } from "../../shared/group-input";
 import { MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH, validateGroupInput } from "../../shared/group-input";
 import { createGroup } from "../api";
-import { localToday, showView } from "../html";
+import { showView } from "../html";
 import { fieldErrorMessage } from "../messages";
 
 const fields: GroupField[] = ["name", "budget", "exchangeDate", "organizerName"];
+
+/** The visitor's local date as YYYY-MM-DD. */
+function localToday(now = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
 
 function markup(today: string): string {
   return `
@@ -50,7 +56,8 @@ function markup(today: string): string {
     </section>`;
 }
 
-function showErrors(form: HTMLFormElement, errors: GroupInputErrors): void {
+/** Puts each error under its field, focuses the first and says how many there are. */
+function showErrors(form: HTMLFormElement, status: HTMLElement, errors: GroupInputErrors): void {
   let first: HTMLInputElement | null = null;
   for (const field of fields) {
     const input = form.elements.namedItem(field) as HTMLInputElement;
@@ -62,15 +69,14 @@ function showErrors(form: HTMLFormElement, errors: GroupInputErrors): void {
     if (error && !first) first = input;
   }
   first?.focus();
+  const count = Object.keys(errors).length;
+  status.textContent = count === 0 ? "" : count === 1 ? "Bitte prüf ein Feld." : `Bitte prüf ${count} Felder.`;
 }
 
 function readInput(form: HTMLFormElement): RawGroupInput {
   const data = new FormData(form);
-  const value = (field: GroupField) => String(data.get(field) ?? "");
-  return { name: value("name"), budget: value("budget"), exchangeDate: value("exchangeDate"), organizerName: value("organizerName") };
+  return Object.fromEntries(fields.map((field) => [field, String(data.get(field) ?? "")])) as unknown as RawGroupInput;
 }
-
-const countMessage = (count: number) => (count === 1 ? "Bitte prüf ein Feld." : `Bitte prüf ${count} Felder.`);
 
 /** Renders the create-group form; calls `onCreated` once the server has stored the group. */
 export function renderCreateGroup(main: HTMLElement, onCreated: (created: CreateGroupResponse) => void): void {
@@ -86,27 +92,19 @@ export function renderCreateGroup(main: HTMLElement, onCreated: (created: Create
 
     const input = readInput(form);
     const checked = validateGroupInput(input, today);
-    if (!checked.ok) {
-      showErrors(form, checked.errors);
-      status.textContent = countMessage(Object.keys(checked.errors).length);
-      return;
-    }
-    showErrors(form, {});
+    if (!checked.ok) return showErrors(form, status, checked.errors);
+    showErrors(form, status, {});
 
     sending = true;
-    const slow = setTimeout(() => (status.textContent = "Gruppe wird angelegt …"), 300);
+    const sendingNotice = setTimeout(() => (status.textContent = "Gruppe wird angelegt …"), 300);
     try {
       const result = await createGroup(input);
-      if (!result.ok) {
-        showErrors(form, result.errors);
-        status.textContent = countMessage(Object.keys(result.errors).length);
-        return;
-      }
+      if (!result.ok) return showErrors(form, status, result.errors);
       onCreated(result.created);
     } catch {
       status.textContent = "Die Gruppe konnte nicht angelegt werden. Prüf deine Verbindung und versuch es noch mal.";
     } finally {
-      clearTimeout(slow);
+      clearTimeout(sendingNotice);
       sending = false;
     }
   });

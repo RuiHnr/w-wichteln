@@ -4,7 +4,7 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/app.css";
 import { fetchMe } from "./api";
-import { showView } from "./html";
+import { showMessage } from "./html";
 import { createIdentityStore } from "./identity";
 import { groupPath } from "./links";
 import { startSnowfall } from "./snowfall";
@@ -30,13 +30,7 @@ async function showGroup(groupId: string): Promise<void> {
     }
     renderGroupPage(main, me, token);
   } catch {
-    showView(
-      main,
-      `<section class="view"><header class="view__head">
-        <h1 class="view__title" tabindex="-1">Die Gruppe lässt sich gerade nicht laden</h1>
-        <p class="view__lead">Prüf deine Verbindung und lad die Seite neu.</p>
-      </header></section>`,
-    );
+    showMessage(main, "Die Gruppe lässt sich gerade nicht laden", "Prüf deine Verbindung und lad die Seite neu.");
   }
 }
 
@@ -53,12 +47,7 @@ function route(): void {
   } else if (group) {
     void showGroup(decodeURIComponent(group[1]));
   } else {
-    showView(
-      main,
-      `<section class="view"><header class="view__head">
-        <h1 class="view__title" tabindex="-1">Diese Seite gibt es nicht</h1>
-      </header><a class="btn btn--secondary" href="/">Zur Startseite</a></section>`,
-    );
+    showMessage(main, "Diese Seite gibt es nicht", undefined, { href: "/", label: "Zur Startseite" });
   }
 }
 

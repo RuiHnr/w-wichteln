@@ -9,29 +9,28 @@ export async function createGroup(db: D1Database, input: GroupInput): Promise<{ 
   const inviteCode = newInviteCode();
   const token = newToken();
 
+  const row: MeRow = {
+    group_id: groupId,
+    group_name: input.name,
+    budget_cents: input.budgetCents,
+    exchange_date: input.exchangeDate,
+    phase: "open",
+    invite_code: inviteCode,
+    participant_id: participantId,
+    participant_name: input.organizerName,
+    is_organizer: 1,
+  };
+
   await db.batch([
     db
       .prepare("INSERT INTO groups (id, invite_code, name, budget_cents, exchange_date) VALUES (?, ?, ?, ?, ?)")
-      .bind(groupId, inviteCode, input.name, input.budgetCents, input.exchangeDate),
+      .bind(row.group_id, row.invite_code, row.group_name, row.budget_cents, row.exchange_date),
     db
       .prepare("INSERT INTO participants (id, group_id, name, token_hash, is_organizer) VALUES (?, ?, ?, ?, 1)")
-      .bind(participantId, groupId, input.organizerName, await hashToken(token)),
+      .bind(row.participant_id, row.group_id, row.participant_name, await hashToken(token)),
   ]);
 
-  return {
-    token,
-    me: {
-      group: {
-        id: groupId,
-        name: input.name,
-        budgetCents: input.budgetCents,
-        exchangeDate: input.exchangeDate,
-        phase: "open",
-        inviteCode,
-      },
-      participant: { id: participantId, name: input.organizerName, isOrganizer: true },
-    },
-  };
+  return { token, me: toMe(row) };
 }
 
 interface MeRow {
@@ -57,7 +56,10 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
     )
     .bind(await hashToken(token))
     .first<MeRow>();
-  if (!row) return null;
+  return row ? toMe(row) : null;
+}
+
+function toMe(row: MeRow): Me {
   return {
     group: {
       id: row.group_id,
