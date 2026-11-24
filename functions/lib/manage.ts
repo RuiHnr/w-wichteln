@@ -90,25 +90,15 @@ export async function updateGroupSettings(
 }
 
 /**
- * Sets the Swap Limit, in either phase. Completed swaps stay whatever the new limit. Open
- * requests that could no longer be accepted, because the sender or the receiver already
- * took part in as many swaps as the new limit allows (all of them at 0), expire in the
- * same transaction rather than lingering where nobody can act on them.
+ * Sets the Swap Limit, in either phase. Only the limit changes: completed swaps stay, and
+ * open requests stay too. `checkSwap` refuses to send or accept one while the sender or the
+ * receiver is at the limit, and accepts it again once the limit is raised.
  */
 export async function setSwapLimit(db: D1Database, token: string, groupId: string, swapLimit: number): Promise<ManageResult> {
-  const tokenHash = await hashToken(token);
-  const [updated] = await db.batch([
-    db
-      .prepare(`UPDATE groups SET swap_limit = ? WHERE id = ? AND ${CALLER_IS_ORGANIZER} RETURNING id`)
-      .bind(swapLimit, groupId, tokenHash, groupId),
-    db
-      .prepare(
-        `DELETE FROM swap_requests
-          WHERE group_id = ? AND status = 'open' AND ${CALLER_IS_ORGANIZER}
-            AND (${completedSwapsOf("swap_requests.sender_id")} >= ? OR ${completedSwapsOf("swap_requests.receiver_id")} >= ?)`,
-      )
-      .bind(groupId, tokenHash, groupId, swapLimit, swapLimit),
-  ]);
+  const updated = await db
+    .prepare(`UPDATE groups SET swap_limit = ? WHERE id = ? AND ${CALLER_IS_ORGANIZER} RETURNING id`)
+    .bind(swapLimit, groupId, await hashToken(token), groupId)
+    .all();
   if (updated.results.length === 1) return changed(db, token);
   const caller = await findOrganizer(db, token, groupId);
   return { ok: false, reason: caller.ok ? "not_organizer" : caller.reason };

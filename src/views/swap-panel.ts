@@ -16,10 +16,13 @@ import { onConfirmedClick } from "./page-actions";
 const limitLine = ({ completed, limit }: SwapsView) =>
   `Noch ${Math.max(limit - completed, 0)} von ${limit} ${limit === 1 ? "Tausch" : "Tauschen"} übrig.`;
 
-/** With the Swap Limit at 0 there is nothing to ask for, answer or wait on: the panel is not shown at all. */
+/**
+ * With the Swap Limit at 0 there is nothing to ask for, so the panel is not shown, unless a request
+ * stayed open from before: then its sender and receiver still see it, and why it cannot be accepted.
+ */
 export function swapPanel(me: Me): string {
   const swaps = me.swaps;
-  if (!swaps || swaps.limit === 0) return "";
+  if (!swaps || (swaps.limit === 0 && !swaps.outgoing && !swaps.incoming.length)) return "";
   return `
     <section class="panel stack swap" aria-labelledby="swap-heading">
       <h2 class="panel__title" id="swap-heading" tabindex="-1" data-focus="swaps">Tausch</h2>
@@ -36,11 +39,12 @@ function swapBody(me: Me, swaps: SwapsView): string {
   return `
       ${intro}
       <p class="panel__text swap__limit">${limitLine(swaps)}</p>
-      ${incoming(swaps)}
-      ${atLimit ? "" : swaps.outgoing ? outgoing(swaps.outgoing) : requestForm(me, swaps.incoming.length > 0)}`;
+      ${incoming(swaps, atLimit)}
+      ${swaps.outgoing ? outgoing(swaps.outgoing, atLimit) : atLimit ? "" : requestForm(me, swaps.incoming.length > 0)}`;
 }
 
-function incoming({ incoming }: SwapsView): string {
+/** Over the limit the caller cannot accept: the request stays, and only declining is offered. */
+function incoming({ incoming }: SwapsView, atLimit: boolean): string {
   if (!incoming.length) return "";
   const items = incoming
     .map(({ id, sender }) => {
@@ -49,10 +53,15 @@ function incoming({ incoming }: SwapsView): string {
         <li class="swap__request">
           <p class="swap__line"><strong>${name}</strong> möchte mit dir tauschen.</p>
           <p class="panel__text">Dann beschenkst du, wen ${name} bisher beschenkt, und ${name} beschenkt deine Person.</p>
+          ${atLimit ? `<p class="panel__text">Annehmen geht erst, wenn dein Tausch-Limit wieder höher ist. Die Anfrage bleibt bis dahin offen.</p>` : ""}
           <div class="swap__actions">
-            <button class="btn btn--primary btn--small" type="button" data-swap-accept="${escapeHtml(id)}"
+            ${
+              atLimit
+                ? ""
+                : `<button class="btn btn--primary btn--small" type="button" data-swap-accept="${escapeHtml(id)}"
               data-focus="swap-accept-${escapeHtml(id)}" data-confirm="Wirklich tauschen?"
-              aria-label="Tausch mit ${name} annehmen">Annehmen</button>
+              aria-label="Tausch mit ${name} annehmen">Annehmen</button>`
+            }
             <button class="btn btn--secondary btn--small" type="button" data-swap-decline="${escapeHtml(id)}"
               data-focus="swap-decline-${escapeHtml(id)}" aria-label="Tauschanfrage von ${name} ablehnen">Ablehnen</button>
           </div>
@@ -66,12 +75,16 @@ function incoming({ incoming }: SwapsView): string {
       </div>`;
 }
 
-function outgoing({ id, receiver }: NonNullable<SwapsView["outgoing"]>): string {
+/** Over the limit the request stays open but cannot be accepted until the limit is raised. */
+function outgoing({ id, receiver }: NonNullable<SwapsView["outgoing"]>, atLimit: boolean): string {
   const name = escapeHtml(receiver.name);
+  const text = atLimit
+    ? `Sie bleibt offen, kann aber erst angenommen werden, wenn dein Tausch-Limit wieder höher ist. Du kannst sie auch zurückziehen.`
+    : `${name} sieht sie beim nächsten Besuch und nimmt sie an oder lehnt sie ab.`;
   return `
       <div class="swap__request swap__request--outgoing">
-        <p class="swap__line">Deine Tauschanfrage an <strong>${name}</strong> wartet auf Antwort.</p>
-        <p class="panel__text">${name} sieht sie beim nächsten Besuch und nimmt sie an oder lehnt sie ab.</p>
+        <p class="swap__line">Deine Tauschanfrage an <strong>${name}</strong> ${atLimit ? "ist offen" : "wartet auf Antwort"}.</p>
+        <p class="panel__text">${text}</p>
         <div class="swap__actions">
           <button class="btn btn--secondary btn--small" type="button" data-swap-withdraw="${escapeHtml(id)}"
             data-focus="swap-withdraw" aria-label="Tauschanfrage an ${name} zurückziehen">Zurückziehen</button>
@@ -97,6 +110,12 @@ function requestForm(me: Me, belowIncoming: boolean): string {
       </form>`;
 }
 
+/** Accepting an open request the limit now blocks: it stays open, so say so. */
+const acceptRefusals: Partial<Record<SwapError, string>> = {
+  limit_reached: "Du hast dein Tausch-Limit erreicht. Die Anfrage bleibt offen, bis der Organisator es erhöht.",
+  partner_limit_reached: "Diese Person hat ihr Tausch-Limit erreicht. Die Anfrage bleibt offen, bis der Organisator es erhöht.",
+};
+
 /** Hooks up the controls rendered by `swapPanel`; `rerender` shows the fresh view after an action. */
 export function wireSwaps(main: HTMLElement, me: Me, token: string, rerender: Rerender, onUnrecognised: () => void): void {
   const panel = main.querySelector<HTMLElement>(".swap");
@@ -106,13 +125,19 @@ export function wireSwaps(main: HTMLElement, me: Me, token: string, rerender: Re
   let busy = false;
 
   /** Runs an action; on success shows `success` near `focus`, on refusal the current state and why, near the same control. */
-  async function run(request: () => Promise<SwapActionResult>, success: string, focus: string, refusedFocus = focus): Promise<void> {
+  async function run(
+    request: () => Promise<SwapActionResult>,
+    success: string,
+    focus: string,
+    refusedFocus = focus,
+    messages: Partial<Record<SwapError, string>> = {},
+  ): Promise<void> {
     if (busy) return;
     busy = true;
     try {
       const result = await request();
       if (result.ok) rerender(result.me, { status: success, focus, fallback: "swaps" });
-      else await refused(result.error, refusedFocus);
+      else await refused(result.error, refusedFocus, messages[result.error]);
     } catch {
       status.textContent = NETWORK_ERROR;
     } finally {
@@ -120,11 +145,11 @@ export function wireSwaps(main: HTMLElement, me: Me, token: string, rerender: Re
     }
   }
 
-  async function refused(error: SwapError, focus: string): Promise<void> {
+  async function refused(error: SwapError, focus: string, message = swapErrorMessages[error]): Promise<void> {
     if (error === "unknown_token") return onUnrecognised();
     const fresh = await fetchMe(token).catch(() => null);
-    if (fresh) rerender(fresh, { status: swapErrorMessages[error], focus, fallback: "swaps" });
-    else status.textContent = swapErrorMessages[error];
+    if (fresh) rerender(fresh, { status: message, focus, fallback: "swaps" });
+    else status.textContent = message;
   }
 
   const form = panel.querySelector<HTMLFormElement>("[data-swap-form]");
@@ -150,11 +175,11 @@ export function wireSwaps(main: HTMLElement, me: Me, token: string, rerender: Re
   }
 
   for (const request of me.swaps.incoming) {
-    const accept = panel.querySelector<HTMLButtonElement>(`[data-swap-accept="${CSS.escape(request.id)}"]`)!;
+    const accept = panel.querySelector<HTMLButtonElement>(`[data-swap-accept="${CSS.escape(request.id)}"]`);
     const decline = panel.querySelector<HTMLButtonElement>(`[data-swap-decline="${CSS.escape(request.id)}"]`)!;
     // After the swap the gift panel holds the new recipient, wrapped again: focus goes to its heading.
-    onConfirmedClick(accept, status, () => {
-      void run(() => acceptSwapRequest(token, request.id), "Getauscht. Öffne dein neues Geschenk.", "draw", `swap-accept-${request.id}`);
+    if (accept) onConfirmedClick(accept, status, () => {
+      void run(() => acceptSwapRequest(token, request.id), "Getauscht. Öffne dein neues Geschenk.", "draw", `swap-accept-${request.id}`, acceptRefusals);
     });
     decline.addEventListener("click", () => {
       void run(() => declineSwapRequest(token, request.id), `Tauschanfrage von ${request.sender.name} abgelehnt.`, "swaps");
