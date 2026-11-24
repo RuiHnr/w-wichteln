@@ -43,11 +43,15 @@ async function showGroup(groupId: string): Promise<void> {
 }
 
 /** A calm wait: the line says what is loading, three fairy lights twinkle in turn while it does. */
-const showLoading = (text: string) =>
-  (main.innerHTML = `<section class="view loading" role="status">
+function showLoading(text: string): void {
+  // a pressed button (the retry) is about to vanish: park the focus on <main> so the next view still moves it to its heading
+  const focusWasInside = main.contains(document.activeElement);
+  main.innerHTML = `<section class="view loading" role="status">
     <p class="loading__text">${text}</p>
     <span class="loading__lights" aria-hidden="true"><i></i><i></i><i></i></span>
-  </section>`);
+  </section>`;
+  if (focusWasInside) main.focus();
+}
 
 /** The server cannot be reached: say so and offer the retry right there, instead of only asking for a reload. */
 function showOffline(): void {
