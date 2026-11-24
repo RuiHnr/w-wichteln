@@ -1,4 +1,4 @@
-import type { GroupPhase, GroupView, InviteResponse, Me, ParticipantView } from "../../shared/api";
+import type { ExclusionView, GroupPhase, GroupView, InviteResponse, Me, ParticipantView } from "../../shared/api";
 import type { GroupInput } from "../../shared/group-input";
 import { hashToken, newInviteCode, newToken } from "./tokens";
 
@@ -31,7 +31,7 @@ export async function createGroup(db: D1Database, input: GroupInput): Promise<{ 
   ]);
 
   const organizer: ParticipantView = { id: participantId, name: input.organizerName, isOrganizer: true };
-  return { token, me: toMe(row, [organizer]) };
+  return { token, me: { ...toMe(row, [organizer]), exclusions: [] } };
 }
 
 /** The public facts of the group behind an invite code; null for an unknown code. */
@@ -95,7 +95,10 @@ interface MeRow extends GroupRow {
   is_organizer: number;
 }
 
-/** The participant a token belongs to, with their group; null for an unknown token. */
+/**
+ * The participant a token belongs to, with their group; null for an unknown token.
+ * Organizers also get the group's exclusions; nobody else sees them.
+ */
 export async function findMe(db: D1Database, token: string): Promise<Me | null> {
   const row = await db
     .prepare(
@@ -111,10 +114,19 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
     .prepare("SELECT id, name, is_organizer FROM participants WHERE group_id = ? ORDER BY created_at, rowid")
     .bind(row.group_id)
     .all<{ id: string; name: string; is_organizer: number }>();
-  return toMe(
+  const me = toMe(
     row,
     results.map((p) => ({ id: p.id, name: p.name, isOrganizer: p.is_organizer === 1 })),
   );
+  return row.is_organizer === 1 ? { ...me, exclusions: await findExclusions(db, row.group_id) } : me;
+}
+
+async function findExclusions(db: D1Database, groupId: string): Promise<ExclusionView[]> {
+  const { results } = await db
+    .prepare("SELECT id, participant_a, participant_b FROM exclusions WHERE group_id = ? ORDER BY created_at, rowid")
+    .bind(groupId)
+    .all<{ id: string; participant_a: string; participant_b: string }>();
+  return results.map((e) => ({ id: e.id, participantIds: [e.participant_a, e.participant_b] }));
 }
 
 function toGroupView(row: GroupRow): GroupView {

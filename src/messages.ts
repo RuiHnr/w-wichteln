@@ -1,4 +1,4 @@
-import type { JoinNameError, ManageError } from "../shared/api";
+import type { ExclusionInputError, JoinNameError, ManageError } from "../shared/api";
 import type { GroupField, GroupInputError } from "../shared/group-input";
 import { MAX_BUDGET_EUROS, MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH } from "../shared/group-input";
 
@@ -40,9 +40,16 @@ export const manageErrorMessages: Record<ManageError, string> = {
   unknown_token: "Dieses Gerät ist in der Gruppe nicht mehr angemeldet.",
   not_organizer: "Du bist kein Organisator mehr. Die Seite zeigt jetzt den aktuellen Stand.",
   unknown_participant: "Diese Person ist nicht mehr in der Gruppe.",
-  drawn: "Nach der Auslosung kann niemand mehr entfernt werden.",
+  unknown_exclusion: "Diesen Ausschluss gibt es nicht mehr.",
+  drawn: "Die Gruppe ist schon ausgelost. Das lässt sich jetzt nicht mehr ändern.",
   last_organizer: "Die Gruppe braucht immer mindestens einen Organisator.",
   self: "Dich selbst kannst du nicht entfernen.",
+};
+
+/** What to tell an organizer whose exclusion form has the wrong input, in German. */
+export const exclusionErrorMessages: Record<ExclusionInputError, string> = {
+  same: "Wähl zwei verschiedene Teilnehmer.",
+  invalid: "Wähl zwei Teilnehmer aus der Liste.",
 };
 
 /** 2000 → "20", 1250 → "12,50": the budget as the settings form shows it for editing. */

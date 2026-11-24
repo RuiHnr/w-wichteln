@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { CreateGroupResponse, Me } from "../../../shared/api";
+import type { Me } from "../../../shared/api";
 import type { Env } from "../../env";
 import { call, createTestEnv } from "../../test/d1";
-import { onRequestPost as createGroup } from "../groups";
-import { onRequestPost as join } from "../invites/[code]/participants";
+import { groupHelpers, request } from "../../test/groups";
 import { onRequestGet as getMe } from "../me";
 import { onRequestPatch as patchGroup } from "./[groupId]/index";
 import { onRequestDelete as deleteParticipant, onRequestPatch as patchParticipant } from "./[groupId]/participants/[participantId]";
@@ -13,48 +12,7 @@ let dispose: () => Promise<void>;
 beforeAll(async () => ({ env, dispose } = await createTestEnv()));
 afterAll(() => dispose());
 
-async function newGroup(): Promise<CreateGroupResponse> {
-  const body = { name: "WG Weihnachten", budget: "20", exchangeDate: "2099-12-20", organizerName: "Lea" };
-  const response = await call(
-    createGroup,
-    new Request("http://app.test/api/groups", { method: "POST", body: JSON.stringify(body) }),
-    env,
-  );
-  return response.json<CreateGroupResponse>();
-}
-
-async function joinAs(inviteCode: string, name: string): Promise<CreateGroupResponse> {
-  const response = await call(
-    join,
-    new Request(`http://app.test/api/invites/${inviteCode}/participants`, {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    }),
-    env,
-    { code: inviteCode },
-  );
-  expect(response.status).toBe(201);
-  return response.json<CreateGroupResponse>();
-}
-
-async function meWith(token: string): Promise<Me> {
-  const response = await call(
-    getMe,
-    new Request("http://app.test/api/me", { headers: { authorization: `Bearer ${token}` } }),
-    env,
-  );
-  return response.json<Me>();
-}
-
-const draw = (groupId: string) => env.DB.prepare("UPDATE groups SET phase = 'drawn' WHERE id = ?").bind(groupId).run();
-
-function request(method: string, url: string, token: string | null, body?: unknown): Request {
-  return new Request(`http://app.test${url}`, {
-    method,
-    headers: token ? { authorization: `Bearer ${token}` } : {},
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-}
+const { newGroup, joinAs, meWith, draw } = groupHelpers(() => env);
 
 function editSettings(token: string | null, groupId: string, body: unknown) {
   return call(patchGroup, request("PATCH", `/api/groups/${groupId}`, token, body), env, { groupId });
@@ -237,7 +195,7 @@ describe("PATCH /api/groups/:groupId/participants/:participantId", () => {
 
     const granted = await setOrganizer(lea.token, lea.me.group.id, max.me.participant.id, true);
     expect(granted.status).toBe(200);
-    expect(Object.keys(await granted.json<Me>()).sort()).toEqual(["group", "participant", "participants"]);
+    expect(Object.keys(await granted.json<Me>()).sort()).toEqual(["exclusions", "group", "participant", "participants"]);
 
     const revoked = await setOrganizer(lea.token, lea.me.group.id, max.me.participant.id, false);
     expect(revoked.status).toBe(200);

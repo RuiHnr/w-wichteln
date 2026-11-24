@@ -1,21 +1,26 @@
-import type { ManageError, Me, ParticipantView } from "../../shared/api";
+import type { ExclusionView, ManageError, Me, ParticipantView } from "../../shared/api";
 import type { GroupSettingsErrors, GroupSettingsField } from "../../shared/group-input";
 import { validateGroupSettings } from "../../shared/group-input";
-import type { UpdateSettingsResult } from "../api";
-import { fetchMe, removeParticipant, setOrganizer, updateSettings } from "../api";
+import type { OrganizerActionResult } from "../api";
+import { addExclusion, fetchMe, removeExclusion, removeParticipant, setOrganizer, updateSettings } from "../api";
 import { escapeHtml } from "../html";
-import { budgetInputValue, fieldErrorMessage, manageErrorMessages } from "../messages";
+import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErrorMessages } from "../messages";
 import { localToday } from "../today";
 
 /**
- * The organizer's controls on the group page: budget and date, and per participant the
- * Organizer role and removal. Only rendered for organizers; the API enforces the same rules.
+ * The organizer's controls on the group page: budget and date, per participant the
+ * Organizer role and removal, and the exclusions. Only rendered for organizers; the API
+ * enforces the same rules.
  */
 
-/** What happened after an organizer action, and which control (by `data-focus`) keeps the focus. */
+/**
+ * What happened after an organizer action, and which control (by `data-focus`) keeps the
+ * focus; `fallback` when that control is gone from the fresh view.
+ */
 export interface AfterAction {
   status: string;
   focus?: string;
+  fallback?: string;
 }
 
 /** How the group page shows the caller's fresh view after an action. */
@@ -51,6 +56,66 @@ export function settingsPanel({ group }: Me): string {
         <p class="form__status" role="status" data-settings-status></p>
       </form>
     </section>`;
+}
+
+/** Both names of an exclusion, in the order the group lists its participants. */
+export function exclusionNames(me: Me, exclusion: Pick<ExclusionView, "participantIds">): [string, string] {
+  const [first, second] = me.participants.filter((p) => exclusion.participantIds.includes(p.id));
+  return [first?.name ?? "?", second?.name ?? "?"];
+}
+
+/** The panel listing the exclusions, with the form to add one while the group is open. */
+export function exclusionsPanel(me: Me): string {
+  const exclusions = me.exclusions ?? [];
+  const open = me.group.phase === "open";
+  const items = exclusions
+    .map((exclusion) => {
+      const [a, b] = exclusionNames(me, exclusion).map(escapeHtml);
+      const remove = open
+        ? `<div class="people__actions"><button class="btn btn--danger btn--small" type="button" data-exclusion="${escapeHtml(exclusion.id)}"
+            aria-label="Ausschluss zwischen ${a} und ${b} aufheben">Aufheben</button></div>`
+        : "";
+      return `<li class="people__item"><span class="people__name">${a} <span class="exclusion__sep" aria-hidden="true">↔</span><span class="visually-hidden">und</span> ${b}</span>${remove}</li>`;
+    })
+    .join("");
+  const list = exclusions.length
+    ? `<ul class="people" role="list">${items}</ul>`
+    : `<p class="panel__text">Noch keine Ausschlüsse.</p>`;
+
+  let footer: string;
+  if (!open) footer = `<p class="panel__text">Nach der Auslosung lassen sich Ausschlüsse nicht mehr ändern.</p>`;
+  else if (me.participants.length < 2) footer = `<p class="panel__text">Sobald zwei Teilnehmer dabei sind, kannst du hier Ausschlüsse festlegen.</p>`;
+  else footer = exclusionForm(me);
+
+  return `
+    <section class="panel stack" aria-labelledby="exclusions-heading">
+      <h2 class="panel__title" id="exclusions-heading" tabindex="-1" data-focus="exclusions">Ausschlüsse <span class="panel__count">${exclusions.length}</span></h2>
+      <p class="panel__text">Zwei Teilnehmer mit Ausschluss beschenken sich nicht gegenseitig, zum Beispiel ein Paar. Nur Organisatoren sehen diese Liste.</p>
+      ${list}
+      ${footer}
+      <p class="form__status" role="status" data-exclusions-status></p>
+    </section>`;
+}
+
+function exclusionForm(me: Me): string {
+  const select = (id: string, label: string, selected: number) => `
+        <div class="field">
+          <label class="field__label" for="${id}">${label}</label>
+          <select class="field__input field__select" id="${id}" name="${id}" aria-describedby="exclusion-error">
+            ${me.participants
+              .map((p, i) => `<option value="${escapeHtml(p.id)}"${i === selected ? " selected" : ""}>${escapeHtml(p.name)}</option>`)
+              .join("")}
+          </select>
+        </div>`;
+  return `
+      <form class="form" novalidate data-exclusion-form>
+        <div class="exclusion__pair">
+          ${select("exclusion-a", "Erster Teilnehmer", 0)}
+          ${select("exclusion-b", "Zweiter Teilnehmer", 1)}
+        </div>
+        <p class="field__error" id="exclusion-error"></p>
+        <button class="btn btn--secondary form__submit" type="submit" data-focus="exclusion-add">Ausschluss hinzufügen</button>
+      </form>`;
 }
 
 /** The buttons an organizer gets on one row of the participant list. */
@@ -104,27 +169,28 @@ export function wireManage(
   let busy = false;
 
   /** A refused action: show the current state, then say why. */
-  async function refused(error: ManageError, status: HTMLElement, focus?: string): Promise<void> {
+  async function refused(error: ManageError, status: HTMLElement, focus?: string, fallback?: string): Promise<void> {
     if (error === "unknown_token") return onUnrecognised();
     const fresh = await fetchMe(token).catch(() => null);
-    if (fresh) rerender(fresh, { status: manageErrorMessages[error], focus });
+    if (fresh) rerender(fresh, { status: manageErrorMessages[error], focus, fallback });
     else status.textContent = manageErrorMessages[error];
   }
 
-  async function run(
-    request: () => Promise<UpdateSettingsResult>,
+  async function run<FieldErrors>(
+    request: () => Promise<OrganizerActionResult | { ok: false; errors: FieldErrors }>,
     status: HTMLElement,
     success: (me: Me) => string,
     focus?: string,
-    onFieldErrors?: (errors: GroupSettingsErrors) => void,
+    onFieldErrors?: (errors: FieldErrors) => void,
+    fallback?: string,
   ): Promise<void> {
     if (busy) return;
     busy = true;
     try {
       const result = await request();
-      if (result.ok) rerender(result.me, { status: success(result.me), focus });
+      if (result.ok) rerender(result.me, { status: success(result.me), focus, fallback });
       else if ("errors" in result) onFieldErrors?.(result.errors);
-      else await refused(result.error, status, focus);
+      else await refused(result.error, status, focus, fallback);
     } catch {
       status.textContent = NETWORK_ERROR;
     } finally {
@@ -161,6 +227,58 @@ export function wireManage(
       // After a role change the row keeps a button for the opposite action; focus that one.
       const opposite = action === "grant" ? "revoke" : action === "revoke" ? "grant" : undefined;
       void run(request, peopleStatus, (fresh) => successMessage(action, target, fresh), opposite && `${opposite}-${target.id}`);
+    });
+  }
+
+  wireExclusions();
+
+  function wireExclusions(): void {
+    const status = main.querySelector<HTMLElement>("[data-exclusions-status]")!;
+    // Focus stays on the add button; without the form (say, the group was drawn meanwhile) it goes to the heading.
+    const [focus, fallback] = ["exclusion-add", "exclusions"];
+
+    for (const button of main.querySelectorAll<HTMLButtonElement>("[data-exclusion]")) {
+      const exclusion = me.exclusions!.find((e) => e.id === button.dataset.exclusion)!;
+      const [a, b] = exclusionNames(me, exclusion);
+      button.addEventListener("click", () => {
+        void run(
+          () => removeExclusion(token, me.group.id, exclusion.id),
+          status,
+          () => `${a} und ${b} können sich jetzt wieder gegenseitig beschenken.`,
+          focus,
+          undefined,
+          fallback,
+        );
+      });
+    }
+
+    const exclusionForm = main.querySelector<HTMLFormElement>("[data-exclusion-form]");
+    if (!exclusionForm) return;
+    const error = exclusionForm.querySelector<HTMLElement>("#exclusion-error")!;
+    const second = exclusionForm.elements.namedItem("exclusion-b") as HTMLSelectElement;
+    const showError = (message: string) => {
+      error.textContent = message;
+      if (message) second.setAttribute("aria-invalid", "true");
+      else second.removeAttribute("aria-invalid");
+      if (message) second.focus();
+    };
+
+    exclusionForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(exclusionForm);
+      const ids: [string, string] = [String(data.get("exclusion-a")), String(data.get("exclusion-b"))];
+      if (ids[0] === ids[1]) return showError(exclusionErrorMessages.same);
+      showError("");
+      // Adding a pair that exists already changes nothing on the server, so it reads as success here too.
+      const [a, b] = exclusionNames(me, { participantIds: ids });
+      void run(
+        () => addExclusion(token, me.group.id, ids),
+        status,
+        () => `${a} und ${b} beschenken sich nicht gegenseitig.`,
+        focus,
+        (errors) => showError(exclusionErrorMessages[errors.participantIds]),
+        fallback,
+      );
     });
   }
 

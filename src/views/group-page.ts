@@ -3,7 +3,7 @@ import { escapeHtml, showMessage, showView } from "../html";
 import { inviteLink, personalLink } from "../links";
 import { groupFacts, phaseLabel } from "./group-facts";
 import type { AfterAction } from "./manage-group";
-import { participantActions, settingsPanel, wireManage } from "./manage-group";
+import { exclusionsPanel, participantActions, settingsPanel, wireManage } from "./manage-group";
 
 function participantList(me: Me): string {
   const items = me.participants
@@ -44,6 +44,8 @@ function markup(me: Me, token: string): string {
       </header>
 
       ${participantList(me)}
+
+      ${participant.isOrganizer ? exclusionsPanel(me) : ""}
 
       ${participant.isOrganizer ? settingsPanel(me) : ""}
 
@@ -104,9 +106,11 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
 
 /** Puts focus back near the control that was used and announces the outcome there. */
 function restoreFocus(main: HTMLElement, after: AfterAction): void {
-  const control = after.focus ? main.querySelector<HTMLElement>(`[data-focus="${CSS.escape(after.focus)}"]`) : null;
+  const find = (focus?: string) => (focus ? main.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focus)}"]`) : null);
+  const control = find(after.focus) ?? find(after.fallback);
   (control ?? main.querySelector<HTMLElement>("#participants-heading"))!.focus();
-  const status = control?.closest("form")?.querySelector<HTMLElement>("[role=status]") ?? main.querySelector<HTMLElement>("[data-people-status]")!;
+  const status =
+    control?.closest(".panel")?.querySelector<HTMLElement>("[role=status]") ?? main.querySelector<HTMLElement>("[data-people-status]")!;
   // A live region filled in the same frame it is inserted is often not read out.
   setTimeout(() => (status.textContent = after.status), 50);
 }

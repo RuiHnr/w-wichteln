@@ -1,5 +1,7 @@
 import type {
   CreateGroupResponse,
+  ExclusionErrorResponse,
+  ExclusionInputError,
   InviteResponse,
   JoinErrorResponse,
   JoinGroupResponse,
@@ -112,4 +114,23 @@ export async function setOrganizer(token: string, groupId: string, participantId
 export async function removeParticipant(token: string, groupId: string, participantId: string): Promise<OrganizerActionResult> {
   const response = await sendManage(token, "DELETE", participantPath(groupId, participantId));
   return readManage(response, "DELETE /api/groups/participants");
+}
+
+const exclusionsPath = (groupId: string) => `/api/groups/${encodeURIComponent(groupId)}/exclusions`;
+
+export type AddExclusionResult = OrganizerActionResult | { ok: false; errors: { participantIds: ExclusionInputError } };
+
+/** Adds an exclusion between two participants; one that exists already changes nothing. */
+export async function addExclusion(token: string, groupId: string, participantIds: [string, string]): Promise<AddExclusionResult> {
+  const response = await sendManage(token, "POST", exclusionsPath(groupId), { participantIds });
+  if (response.status === 400) {
+    const { errors } = (await response.json()) as ExclusionErrorResponse;
+    return { ok: false, errors };
+  }
+  return readManage(response, "POST /api/groups/exclusions");
+}
+
+export async function removeExclusion(token: string, groupId: string, exclusionId: string): Promise<OrganizerActionResult> {
+  const response = await sendManage(token, "DELETE", `${exclusionsPath(groupId)}/${encodeURIComponent(exclusionId)}`);
+  return readManage(response, "DELETE /api/groups/exclusions");
 }
