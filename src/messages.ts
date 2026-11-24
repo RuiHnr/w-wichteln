@@ -1,4 +1,4 @@
-import type { ExclusionInputError, JoinNameError, LinkRenewalView, ManageError, SwapError } from "../shared/api";
+import type { ExclusionInputError, JoinNameError, LinkRenewalView, ManageError, PictureError, SwapError } from "../shared/api";
 import { MIN_PARTICIPANTS_TO_DRAW } from "../shared/draw";
 import type { GroupField, GroupInputError } from "../shared/group-input";
 import { MAX_BUDGET_EUROS, MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH } from "../shared/group-input";
@@ -91,6 +91,19 @@ export function wishlistLengthHint(text: string): string {
   const left = Math.max(0, MAX_WISHLIST_LENGTH - text.length);
   return left === 1 ? "Noch 1 Zeichen frei." : `Noch ${left} Zeichen frei.`;
 }
+
+/** What to tell someone whose picture upload or removal the server refused, or whose browser could not read the file, in German. */
+export const pictureErrorMessages: Record<PictureError, string> = {
+  unknown_token: "Dieses Gerät ist in der Gruppe nicht mehr angemeldet.",
+  not_organizer: "Du bist kein Organisator mehr. Die Seite zeigt jetzt den aktuellen Stand.",
+  not_self: "Ein Profilbild kann nur die Person selbst ändern.",
+  too_large: "Das Bild ist zu groß. Wähl ein kleineres Bild, höchstens 1 MB.",
+  wrong_format: "Dieses Bild lässt sich nicht verwenden. Wähl ein JPEG-, PNG- oder WebP-Bild.",
+  unavailable: "Bilder sind gerade nicht verfügbar. Versuch es später noch mal.",
+};
+
+/** Shown when creating or joining worked but a chosen picture did not upload. */
+export const PICTURE_LATER_NOTE = "Dein Bild konnte nicht hochgeladen werden. Du kannst es auf der Gruppenseite nachholen.";
 
 /** 2000 → "20", 1250 → "12,50": the budget as the settings form shows it for editing. */
 export function budgetInputValue(cents: number): string {

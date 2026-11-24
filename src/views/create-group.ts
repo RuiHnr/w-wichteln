@@ -5,6 +5,7 @@ import { createGroup } from "../api";
 import { showView } from "../html";
 import { fieldErrorMessage } from "../messages";
 import { localToday } from "../today";
+import { chosenFile, pictureField, uploadChosenPictures } from "./picture-panel";
 
 const fields: GroupField[] = ["name", "budget", "exchangeDate", "organizerName"];
 
@@ -45,6 +46,8 @@ function markup(today: string): string {
           <p class="field__hint" id="organizerName-hint">So sehen dich die anderen in der Gruppe.</p>
           <p class="field__error" id="organizerName-error"></p>
         </div>
+        ${pictureField("groupPicture", "Gruppenbild (optional)", "Erscheint oben auf der Gruppenseite. Du kannst es später ändern.")}
+        ${pictureField("ownPicture", "Dein Profilbild (optional)", "Ohne Bild stehen deine Initialen da. Du kannst es später ändern.")}
         <button class="btn btn--primary form__submit" type="submit">Gruppe anlegen</button>
         <p class="form__status" role="status" data-form-status></p>
       </form>
@@ -73,8 +76,15 @@ function readInput(form: HTMLFormElement): RawGroupInput {
   return Object.fromEntries(fields.map((field) => [field, String(data.get(field) ?? "")])) as unknown as RawGroupInput;
 }
 
-/** Renders the create-group form; calls `onCreated` once the server has stored the group. */
-export function renderCreateGroup(main: HTMLElement, onCreated: (created: CreateGroupResponse) => void): void {
+/**
+ * Renders the create-group form; calls `onCreated` once the server has stored the group and
+ * the chosen pictures had their try. `pictureFailed` says one of them did not make it: the
+ * group exists regardless, and the pictures can be added on the group page.
+ */
+export function renderCreateGroup(
+  main: HTMLElement,
+  onCreated: (created: CreateGroupResponse, pictureFailed: boolean) => void,
+): void {
   const today = localToday();
   showView(main, markup(today));
   const form = main.querySelector<HTMLFormElement>("form")!;
@@ -95,7 +105,11 @@ export function renderCreateGroup(main: HTMLElement, onCreated: (created: Create
     try {
       const result = await createGroup(input);
       if (!result.ok) return showErrors(form, status, result.errors);
-      onCreated(result.created);
+      const group = chosenFile(form, "groupPicture");
+      const own = chosenFile(form, "ownPicture");
+      if (group || own) status.textContent = "Bilder werden hochgeladen …";
+      const { joined, failed } = await uploadChosenPictures(result.created, { group, own });
+      onCreated(joined, failed);
     } catch {
       status.textContent = "Die Gruppe konnte nicht angelegt werden. Prüf deine Verbindung und versuch es noch mal.";
     } finally {

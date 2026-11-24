@@ -2,13 +2,14 @@ import { escapeHtml, showView } from "../html";
 import { personalLink } from "../links";
 import { linkRow, wireLinkRows } from "./link-row";
 
-function markup(groupName: string, token: string): string {
+function markup(groupName: string, token: string, note: string): string {
   return `
     <section class="view">
       <header class="view__head">
         <p class="view__eyebrow">${escapeHtml(groupName)}</p>
         <h1 class="view__title" tabindex="-1">Speichere jetzt deinen persönlichen Link</h1>
         <p class="view__lead">Er ist dein einziger Weg zurück in die Gruppe.</p>
+        ${note ? `<p class="note" role="status">${escapeHtml(note)}</p>` : ""}
       </header>
       <form class="form panel" novalidate>
         <div class="stack">
@@ -44,8 +45,8 @@ function markup(groupName: string, token: string): string {
  * The step right after creating or joining a group: the Personal Link is the only way back
  * (ADR 0002), so the group page opens only once the participant says they saved it.
  */
-export function renderSaveLink(main: HTMLElement, groupName: string, token: string, onSaved: () => void): void {
-  showView(main, markup(groupName, token));
+export function renderSaveLink(main: HTMLElement, groupName: string, token: string, onSaved: () => void, note = ""): void {
+  showView(main, markup(groupName, token, note));
   const form = main.querySelector<HTMLFormElement>("form")!;
   const saved = form.querySelector<HTMLInputElement>("[name=saved]")!;
   const error = form.querySelector<HTMLElement>("#saved-error")!;

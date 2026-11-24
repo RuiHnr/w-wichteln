@@ -15,12 +15,16 @@ export interface GroupView {
   inviteCode: string;
   /** The Swap Limit, 0 to 5: how many completed swaps each participant may take part in; 0 turns swapping off. */
   swapLimit: number;
+  /** URL of the Group Picture; absent when the group has none. */
+  picture?: string;
 }
 
 export interface ParticipantView {
   id: string;
   name: string;
   isOrganizer: boolean;
+  /** URL of the Participant Picture; absent when they have none, then their initials stand in. */
+  picture?: string;
   /** The latest Link Renewal of this participant's Personal Link, if any; everyone in the group sees it (ADR 0004). */
   linkRenewal?: LinkRenewalView;
 }
@@ -37,7 +41,7 @@ export interface LinkRenewalView {
 
 /** 200 from GET /api/invites/:code: what someone is about to join. No participants, no invite code. */
 export interface InviteResponse {
-  group: Omit<GroupView, "inviteCode" | "swapLimit">;
+  group: Omit<GroupView, "inviteCode" | "swapLimit" | "picture">;
 }
 
 /** An exclusion between two participants of the group; it works in both directions, so the order means nothing. */
@@ -78,7 +82,7 @@ export interface SwapsView {
 }
 
 /** The recipient of the caller's assignment, with their wishlist: the only other wishlist anyone sees. */
-export interface RecipientView extends Pick<ParticipantView, "id" | "name"> {
+export interface RecipientView extends Pick<ParticipantView, "id" | "name" | "picture"> {
   /** Empty when the recipient has not written one. */
   wishlist: string;
 }
@@ -128,6 +132,13 @@ export interface RenewLinkResponse {
   token: string;
   me: Me;
 }
+
+/**
+ * Why a picture upload or removal was refused, in `{ error }`: 401 unknown_token, 403 not_organizer
+ * (Group Picture) or not_self (Participant Picture: only the participant changes their own), 413 too_large,
+ * 415 wrong_format, 503 unavailable (no image storage configured).
+ */
+export type PictureError = "unknown_token" | "not_organizer" | "not_self" | "too_large" | "wrong_format" | "unavailable";
 
 /** 400 from PATCH /api/groups/:groupId: one error code per invalid field. */
 export interface SettingsErrorResponse {

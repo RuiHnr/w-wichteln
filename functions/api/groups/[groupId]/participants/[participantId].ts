@@ -29,6 +29,6 @@ export const onRequestDelete: PagesFunction<Env, Params> = async ({ request, env
   const caller = await findOrganizer(env.DB, token, groupId);
   if (!caller.ok) return manageErrorResponse(caller.reason);
 
-  const result = await removeParticipant(env.DB, token!, groupId, String(params.participantId));
+  const result = await removeParticipant(env.DB, token!, groupId, String(params.participantId), env.PICTURES);
   return result.ok ? Response.json(result.me satisfies Me) : manageErrorResponse(result.reason);
 };

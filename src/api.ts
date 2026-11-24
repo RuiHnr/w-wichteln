@@ -8,6 +8,7 @@ import type {
   JoinNameError,
   ManageError,
   Me,
+  PictureError,
   RenewLinkResponse,
   SettingsErrorResponse,
   SwapLimitErrorResponse,
@@ -246,3 +247,37 @@ export async function acceptSwapRequest(token: string, requestId: string): Promi
 export async function declineSwapRequest(token: string, requestId: string): Promise<SwapActionResult> {
   return readAction<SwapError>(await sendWithToken(token, "POST", `${swapRequestPath(requestId)}/decline`), "POST /api/me/swap-requests/decline");
 }
+
+/** A picture action: the caller's fresh view, or why the server refused it. */
+export type PictureActionResult = { ok: true; me: Me } | { ok: false; error: PictureError };
+
+async function sendPicture(token: string, method: "PUT" | "DELETE", path: string, image?: Blob): Promise<PictureActionResult> {
+  const response = await fetch(path, {
+    method,
+    headers: { authorization: `Bearer ${token}`, ...(image ? { "content-type": image.type } : {}) },
+    body: image,
+  });
+  if ([401, 403, 413, 415, 503].includes(response.status)) {
+    const { error } = (await response.json()) as { error: PictureError };
+    return { ok: false, error };
+  }
+  if (!response.ok) throw new Error(`${method} ${path} answered ${response.status}`);
+  return { ok: true, me: (await response.json()) as Me };
+}
+
+const groupPicturePath = (groupId: string) => `/api/groups/${encodeURIComponent(groupId)}/picture`;
+const ownPicturePath = (groupId: string, participantId: string) => `${participantPath(groupId, participantId)}/picture`;
+
+/** An organizer sets or replaces the Group Picture. Throws when the server cannot be reached or fails. */
+export const uploadGroupPicture = (token: string, groupId: string, image: Blob) => sendPicture(token, "PUT", groupPicturePath(groupId), image);
+
+/** An organizer removes the Group Picture. */
+export const removeGroupPicture = (token: string, groupId: string) => sendPicture(token, "DELETE", groupPicturePath(groupId));
+
+/** The caller sets or replaces their own Participant Picture. */
+export const uploadOwnPicture = (token: string, groupId: string, participantId: string, image: Blob) =>
+  sendPicture(token, "PUT", ownPicturePath(groupId, participantId), image);
+
+/** The caller removes their own Participant Picture. */
+export const removeOwnPicture = (token: string, groupId: string, participantId: string) =>
+  sendPicture(token, "DELETE", ownPicturePath(groupId, participantId));

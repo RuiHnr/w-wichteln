@@ -9,7 +9,7 @@ import { deleteExpiredGroups } from "./lib/cleanup";
 export function cleanupMiddleware(now: () => number = Date.now): PagesFunction<Env> {
   return async ({ env, next, waitUntil }) => {
     const response = await next();
-    waitUntil(deleteExpiredGroups(env.DB, now()).catch((error) => console.error("cleanup of expired groups failed", error)));
+    waitUntil(deleteExpiredGroups(env.DB, now(), undefined, env.PICTURES).catch((error) => console.error("cleanup of expired groups failed", error)));
     return response;
   };
 }

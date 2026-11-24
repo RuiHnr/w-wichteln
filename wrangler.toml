@@ -7,3 +7,9 @@ binding = "DB"
 database_name = "w-wichteln"
 database_id = "612f1c12-f4b9-4768-bf41-1a17e6d08053"
 migrations_dir = "migrations"
+
+# Group Pictures and Participant Pictures (#34). The bucket must exist before deploying:
+# `wrangler r2 bucket create w-wichteln-pictures`, and the binding added to the Pages project.
+[[r2_buckets]]
+binding = "PICTURES"
+bucket_name = "w-wichteln-pictures"
