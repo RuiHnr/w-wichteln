@@ -4,13 +4,13 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/app.css";
 import type { CreateGroupResponse } from "../shared/api";
-import { fetchInvite, fetchMe } from "./api";
+import { fetchInvite, fetchMe, groupStillExists } from "./api";
 import { showMessage } from "./html";
 import { createIdentityStore } from "./identity";
 import { groupPath } from "./links";
 import { startSnowfall } from "./snowfall";
 import { renderCreateGroup } from "./views/create-group";
-import { renderGroupPage, renderNotRecognised } from "./views/group-page";
+import { renderGroupGone, renderGroupPage, renderNotRecognised } from "./views/group-page";
 import { renderJoinClosed, renderJoinGroup } from "./views/join-group";
 
 const canvas = document.querySelector<HTMLCanvasElement>(".snowfall");
@@ -19,16 +19,22 @@ if (canvas) startSnowfall(canvas);
 const main = document.querySelector<HTMLElement>("#main")!;
 const identity = createIdentityStore(localStorage);
 
+/** No usable token for this group: say so, unless the group itself is gone (deleted 60 days after its date). */
+async function showNotRecognised(groupId: string): Promise<void> {
+  if ((await groupStillExists(groupId)) === false) return renderGroupGone(main);
+  renderNotRecognised(main);
+}
+
 async function showGroup(groupId: string): Promise<void> {
   const token = identity.tokenFor(groupId);
-  if (!token) return renderNotRecognised(main);
+  if (!token) return showNotRecognised(groupId);
 
   showLoading("Gruppe wird geladen …");
   try {
     const me = await fetchMe(token);
     if (!me || me.group.id !== groupId) {
       identity.forget(groupId);
-      return renderNotRecognised(main);
+      return showNotRecognised(groupId);
     }
     renderGroupPage(main, me, token);
   } catch {
@@ -53,10 +59,8 @@ async function showJoin(inviteCode: string): Promise<void> {
   try {
     const invite = await fetchInvite(inviteCode);
     if (!invite) {
-      return showMessage(main, "Diesen Einladungslink gibt es nicht", "Frag nach dem richtigen Link.", {
-        href: "/",
-        label: "Neue Gruppe anlegen",
-      });
+      // A deleted group's invite code is unknown just like a mistyped one; the page covers both.
+      return renderGroupGone(main);
     }
     const token = identity.tokenFor(invite.group.id);
     const me = token ? await fetchMe(token) : null;
@@ -81,7 +85,7 @@ async function showPersonal(token: string): Promise<void> {
     const me = await fetchMe(token);
     if (!me) {
       history.replaceState(null, "", "/");
-      return showMessage(main, "Dieser persönliche Link gilt nicht", "Prüf, ob du ihn vollständig kopiert hast.", {
+      return showMessage(main, "Dieser persönliche Link gilt nicht", "Prüf, ob du ihn vollständig kopiert hast. Gruppen werden 60 Tage nach der Bescherung gelöscht.", {
         href: "/",
         label: "Neue Gruppe anlegen",
       });
