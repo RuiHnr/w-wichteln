@@ -9,6 +9,8 @@ const KEY = "w-wichteln:tokens";
 
 export interface IdentityStore {
   tokenFor(groupId: string): string | null;
+  /** The group this device keeps the token for, if any. */
+  groupWith(token: string): string | null;
   remember(groupId: string, token: string): void;
   forget(groupId: string): void;
 }
@@ -24,6 +26,7 @@ export function createIdentityStore(storage: Pick<Storage, "getItem" | "setItem"
       const token = read()[groupId];
       return typeof token === "string" ? token : null;
     },
+    groupWith: (token) => Object.entries(read()).find(([, stored]) => stored === token)?.[0] ?? null,
     remember: (groupId, token) => write({ ...read(), [groupId]: token }),
     forget: (groupId) => {
       const { [groupId]: _forgotten, ...rest } = read();

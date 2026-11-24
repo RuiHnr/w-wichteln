@@ -584,6 +584,38 @@ html {
   }
 }
 
+/* Group Deletion: the dialog's delete button stays off until the group's name is typed */
+.delete__open {
+  justify-self: start;
+}
+
+@media (max-width: 479px) {
+  .delete__open {
+    justify-self: stretch;
+  }
+}
+
+.delete__name {
+  color: var(--p-ink);
+  overflow-wrap: anywhere;
+}
+
+/* Any button that is turned off: faded, and it no longer answers the pointer */
+.btn:disabled,
+.btn:disabled:hover,
+.btn:disabled:active {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--danger.btn--danger-fill:disabled:hover {
+    background: var(--p-danger);
+  }
+}
+
 /* Wishlist: the caller's own as a form, the recipient's as text inside the draw panel */
 .field__textarea {
   min-height: 8rem;

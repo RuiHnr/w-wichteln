@@ -2,6 +2,7 @@ import type { ManageError, Me } from "../../shared/api";
 import type { GroupSettings } from "../../shared/group-input";
 import { MIN_PARTICIPANTS_TO_DRAW } from "../../shared/draw";
 import { type Assignments, drawAssignments } from "./draw";
+import { deleteGroups } from "./group-deletion";
 import { completedSwapsOf, findMe } from "./groups";
 import { hashToken } from "./tokens";
 
@@ -330,6 +331,26 @@ export async function resetGroup(db: D1Database, token: string, groupId: string)
   const caller = await findOrganizer(db, token, groupId);
   if (!caller.ok) return caller;
   return { ok: false, reason: caller.me.group.phase === "open" ? "not_drawn" : "not_organizer" };
+}
+
+/**
+ * Group Deletion: an organizer deletes the group with everything in it, in either phase,
+ * with the same result as its Expiry (see `deleteGroups`). Every statement of the deletion
+ * re-checks the caller's role, so an organizer demoted at the same moment deletes nothing.
+ * Afterwards the caller's token is unknown like everyone else's, so there is no fresh view.
+ */
+export async function deleteGroup(
+  db: D1Database,
+  token: string | null,
+  groupId: string,
+): Promise<{ ok: true } | { ok: false; reason: ManageError }> {
+  if (!token) return { ok: false, reason: "unknown_token" };
+  const callerIsOrganizer =
+    "EXISTS (SELECT 1 FROM participants caller WHERE caller.token_hash = ? AND caller.group_id = groups.id AND caller.is_organizer = 1)";
+  const deleted = await deleteGroups(db, [groupId], callerIsOrganizer, [await hashToken(token)]);
+  if (deleted.length === 1) return { ok: true };
+  const caller = await findOrganizer(db, token, groupId);
+  return { ok: false, reason: caller.ok ? "not_organizer" : caller.reason };
 }
 
 const statusOf: Record<ManageError, number> = {

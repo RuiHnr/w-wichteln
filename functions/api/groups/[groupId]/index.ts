@@ -2,12 +2,12 @@ import type { Me, SettingsErrorResponse } from "../../../../shared/api";
 import { validateGroupSettings } from "../../../../shared/group-input";
 import type { Env } from "../../../env";
 import { earliestExchangeDate } from "../../../lib/dates";
-import { findOrganizer, manageErrorResponse, updateGroupSettings } from "../../../lib/manage";
+import { deleteGroup, findOrganizer, manageErrorResponse, updateGroupSettings } from "../../../lib/manage";
 import { bearerToken } from "../../../lib/tokens";
 
 /**
- * Whether the group still exists, so the page can tell a deleted group (see the lazy
- * cleanup) from a link this device just has no valid token for. Reveals nothing else.
+ * Whether the group still exists, so the page can tell a deleted group (expired, or by a
+ * Group Deletion) from a link this device just has no valid token for. Reveals nothing else.
  */
 export const onRequestGet: PagesFunction<Env, "groupId"> = async ({ env, params }) => {
   const found = await env.DB.prepare("SELECT 1 AS found FROM groups WHERE id = ?").bind(String(params.groupId)).first();
@@ -27,4 +27,13 @@ export const onRequestPatch: PagesFunction<Env, "groupId"> = async ({ request, e
 
   const result = await updateGroupSettings(env.DB, token!, groupId, settings.value);
   return result.ok ? Response.json(result.me satisfies Me) : manageErrorResponse(result.reason);
+};
+
+/**
+ * Group Deletion: an organizer deletes the group with everything in it, in either phase.
+ * Answers 204; afterwards the group, its Invite Link and every Personal Link are unknown.
+ */
+export const onRequestDelete: PagesFunction<Env, "groupId"> = async ({ request, env, params }) => {
+  const result = await deleteGroup(env.DB, bearerToken(request), String(params.groupId));
+  return result.ok ? new Response(null, { status: 204 }) : manageErrorResponse(result.reason);
 };
