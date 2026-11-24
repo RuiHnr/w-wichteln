@@ -120,22 +120,6 @@ main:focus {
   padding-block: var(--space-8);
 }
 
-.shell-intro {
-  display: grid;
-  gap: var(--space-4);
-}
-
-.shell-intro__title {
-  font-size: var(--text-display);
-  text-shadow: var(--glow-soft);
-}
-
-.shell-intro__lead {
-  font-size: var(--text-lg);
-  color: var(--p-muted);
-  max-width: 34ch;
-}
-
 /* Buttons: hover steps 1px up and 14% toward the ink, press sinks 1px and scales .985 */
 .btn {
   display: inline-flex;

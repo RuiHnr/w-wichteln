@@ -1,0 +1,257 @@
+/* Views, forms and panels of the app. Tokens in tokens.css, buttons and shell in base.css. */
+
+html {
+  background-color: var(--p-bg-deep);
+}
+
+.app-header__name {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  text-decoration: none;
+  transition: text-shadow var(--m-out) var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-header__name:hover {
+    text-shadow: var(--glow-strong);
+    transition-duration: var(--m-in);
+  }
+}
+
+.app-main {
+  padding-block: var(--space-6) var(--space-8);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A view: one heading block, then its panels */
+.view {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.view__head {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.view__eyebrow {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--p-accent);
+}
+
+.view__title {
+  font-size: clamp(1.875rem, 1.4rem + 2.2vw, 2.75rem);
+  text-shadow: var(--glow-soft);
+  overflow-wrap: anywhere;
+}
+
+.view__lead {
+  font-size: var(--text-lg);
+  color: var(--p-muted);
+  max-width: 38ch;
+}
+
+.view > .btn {
+  justify-self: start;
+}
+
+/* Panel: one surface, never nested */
+.panel {
+  padding: var(--space-5);
+  border: 1px solid var(--p-line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--p-surface) 82%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.panel__title {
+  font-size: var(--text-xl);
+}
+
+.panel__text {
+  color: var(--p-muted);
+}
+
+/* Facts: budget, date, who you are */
+.facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.facts__item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+}
+
+.facts dt {
+  min-width: 7.5rem;
+  color: var(--p-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* Form: labels above 48px fields, 16px text, errors under their field */
+.form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.field__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.field__input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--p-ink) 22%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--p-bg-deep);
+  color: var(--p-ink);
+  font: 400 var(--text-base) / 1.2 var(--font-text);
+  transition:
+    border-color var(--m-out) var(--ease),
+    box-shadow var(--m-out) var(--ease);
+}
+
+.field__input::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .field__input:hover {
+    border-color: color-mix(in srgb, var(--p-ink) 40%, transparent);
+    transition-duration: var(--m-in);
+  }
+}
+
+.field__input:focus-visible {
+  outline: none;
+  border-color: var(--p-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-accent) 35%, transparent);
+}
+
+.field__input[aria-invalid="true"] {
+  border-color: var(--p-danger);
+}
+
+.field__affix {
+  position: relative;
+}
+
+.field__affix .field__input {
+  padding-right: calc(var(--space-4) * 2 + 1ch);
+}
+
+.field__suffix {
+  position: absolute;
+  top: 50%;
+  right: var(--space-4);
+  transform: translateY(-50%);
+  color: var(--p-muted);
+  pointer-events: none;
+}
+
+.field__hint {
+  font-size: var(--text-sm);
+  color: var(--p-muted);
+}
+
+.field__error {
+  font-size: var(--text-sm);
+  color: var(--p-danger);
+}
+
+.field__error:empty {
+  display: none;
+}
+
+.form__submit {
+  width: 100%;
+}
+
+.form__status {
+  font-size: var(--text-sm);
+  color: var(--p-muted);
+  text-align: center;
+}
+
+.form__status:empty {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .form__submit {
+    width: auto;
+    justify-self: start;
+  }
+
+  .form__status {
+    text-align: left;
+  }
+}
+
+/* A link to share, with its copy button */
+.link-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.link-row__url {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+}
+
+.link-row__copy {
+  flex: none;
+  min-width: 7.5rem;
+  padding-inline: var(--space-4);
+}
+
+/* On a phone the link gets the full width to stay readable, the button goes under it */
+@media (max-width: 479px) {
+  .link-row {
+    flex-direction: column;
+  }
+}
+
+/* Warning note: keep the Personal Link private (ADR 0002) */
+.note {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--p-accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--p-accent) 10%, transparent);
+  font-size: var(--text-sm);
+}
