@@ -401,3 +401,65 @@ html {
   text-shadow: var(--glow-strong);
   overflow-wrap: anywhere;
 }
+
+/* Reset: the confirm dialog */
+.btn--danger-fill {
+  background: var(--p-danger);
+  color: var(--p-accent-ink);
+  border-color: var(--p-danger);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--danger.btn--danger-fill:hover {
+    background: color-mix(in srgb, var(--p-danger) 85%, var(--p-ink));
+  }
+}
+
+.dialog {
+  width: min(28rem, calc(100vw - 2 * var(--space-4)));
+  margin: auto;
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--p-danger) 45%, transparent);
+  border-radius: var(--radius-lg);
+  background: var(--p-surface-raised);
+  color: var(--p-ink);
+}
+
+.dialog:not([open]) {
+  display: none;
+}
+
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--p-bg-deep) 75%, transparent);
+}
+
+.dialog[open] {
+  animation: dialog-in var(--m-in) var(--ease-enter);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open] {
+    animation: none;
+  }
+}
+
+.dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 479px) {
+  .dialog__actions {
+    flex-direction: column-reverse;
+  }
+}

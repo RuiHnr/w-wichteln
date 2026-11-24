@@ -140,3 +140,9 @@ export async function drawGroup(token: string, groupId: string): Promise<Organiz
   const response = await sendManage(token, "POST", `/api/groups/${encodeURIComponent(groupId)}/draw`);
   return readManage(response, "POST /api/groups/draw");
 }
+
+/** Resets the drawn group: all assignments are gone and it is open again; refused with not_drawn while open. */
+export async function resetGroup(token: string, groupId: string): Promise<OrganizerActionResult> {
+  const response = await sendManage(token, "DELETE", `/api/groups/${encodeURIComponent(groupId)}/draw`);
+  return readManage(response, "DELETE /api/groups/draw");
+}
