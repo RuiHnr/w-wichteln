@@ -240,19 +240,20 @@ export function wireManage(
   wireSwapLimit();
 
   function wireSwapLimit(): void {
-    const fieldset = main.querySelector<HTMLFieldSetElement>("[data-swap-limit]");
-    if (!fieldset) return;
+    const found = main.querySelector<HTMLFieldSetElement>("[data-swap-limit]");
+    if (!found) return;
+    const fieldset: HTMLFieldSetElement = found;
     const status = main.querySelector<HTMLElement>("[data-swap-limit-status]")!;
     const dialog = main.querySelector<HTMLDialogElement>("[data-swap-off-dialog]")!;
-    const stored = () => fieldset.querySelector<HTMLInputElement>(`input[value="${me.group.swapLimit}"]`);
+    const storedRadio = () => fieldset.querySelector<HTMLInputElement>(`input[value="${me.group.swapLimit}"]`);
 
     function save(limit: number): void {
       const success = () => (limit === 0 ? "Tauschen ist ausgeschaltet." : `Tausch-Limit auf ${limit} gesetzt.`);
       // One save at a time: while it runs the choices are off, and a failed save shows the stored limit again.
-      fieldset!.disabled = true;
+      fieldset.disabled = true;
       void run(() => updateSwapLimit(token, me.group.id, limit), status, success, "swap-limit", undefined, "swap-limit-heading").finally(() => {
-        fieldset!.disabled = false;
-        if (fieldset!.isConnected) stored()!.checked = true;
+        fieldset.disabled = false;
+        if (fieldset.isConnected) storedRadio()!.checked = true;
       });
     }
 
@@ -261,24 +262,29 @@ export function wireManage(
     fieldset.addEventListener("change", (event) => {
       const limit = Number((event.target as HTMLInputElement).value);
       if (limit !== 0) return save(limit);
-      stored()!.checked = true;
+      storedRadio()!.checked = true;
       dialog.showModal();
     });
     // Cancelling, by button, Escape or backdrop, puts the focus back on the stored limit's radio.
     dialog.addEventListener("close", () => {
-      if (dialog.returnValue !== "confirm") stored()?.focus();
+      if (dialog.returnValue !== "confirm") storedRadio()?.focus();
       dialog.returnValue = "";
     });
     dialog.querySelector("[data-swap-off-cancel]")!.addEventListener("click", () => dialog.close());
+    closeOnBackdropClick(dialog);
+    dialog.querySelector("[data-swap-off-confirm]")!.addEventListener("click", () => {
+      dialog.close("confirm");
+      save(0);
+    });
+  }
+
+  /** A click on the backdrop cancels too. It lands on the dialog itself, as does one on its padding, so check where. */
+  function closeOnBackdropClick(dialog: HTMLDialogElement): void {
     dialog.addEventListener("click", (event) => {
       if (event.target !== dialog) return;
       const box = dialog.getBoundingClientRect();
       const inside = event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
       if (!inside) dialog.close();
-    });
-    dialog.querySelector("[data-swap-off-confirm]")!.addEventListener("click", () => {
-      dialog.close("confirm");
-      save(0);
     });
   }
 
@@ -289,13 +295,7 @@ export function wireManage(
     const status = main.querySelector<HTMLElement>("[data-reset-status]")!;
     open.addEventListener("click", () => dialog.showModal());
     dialog.querySelector("[data-reset-cancel]")!.addEventListener("click", () => dialog.close());
-    // A click on the backdrop cancels too. It lands on the dialog itself, as does one on its padding, so check where.
-    dialog.addEventListener("click", (event) => {
-      if (event.target !== dialog) return;
-      const box = dialog.getBoundingClientRect();
-      const inside = event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
-      if (!inside) dialog.close();
-    });
+    closeOnBackdropClick(dialog);
     dialog.querySelector("[data-reset-confirm]")!.addEventListener("click", () => {
       dialog.close();
       // The group is open again: focus goes to the start button of the draw, or its heading when too few are left.

@@ -112,8 +112,8 @@ function requestForm(me: Me, belowIncoming: boolean): string {
 
 /** Accepting an open request the limit now blocks: it stays open, so say so. */
 const acceptRefusals: Partial<Record<SwapError, string>> = {
-  limit_reached: "Du hast dein Tausch-Limit erreicht. Die Anfrage bleibt offen, bis der Organisator es erhöht.",
-  partner_limit_reached: "Diese Person hat ihr Tausch-Limit erreicht. Die Anfrage bleibt offen, bis der Organisator es erhöht.",
+  limit_reached: "Du hast dein Tausch-Limit erreicht. Die Anfrage bleibt offen, bis das Limit sie wieder zulässt.",
+  partner_limit_reached: "Diese Person hat ihr Tausch-Limit erreicht. Die Anfrage bleibt offen, bis das Limit sie wieder zulässt.",
 };
 
 /** Hooks up the controls rendered by `swapPanel`; `rerender` shows the fresh view after an action. */
@@ -177,10 +177,12 @@ export function wireSwaps(main: HTMLElement, me: Me, token: string, rerender: Re
   for (const request of me.swaps.incoming) {
     const accept = panel.querySelector<HTMLButtonElement>(`[data-swap-accept="${CSS.escape(request.id)}"]`);
     const decline = panel.querySelector<HTMLButtonElement>(`[data-swap-decline="${CSS.escape(request.id)}"]`)!;
-    // After the swap the gift panel holds the new recipient, wrapped again: focus goes to its heading.
-    if (accept) onConfirmedClick(accept, status, () => {
-      void run(() => acceptSwapRequest(token, request.id), "Getauscht. Öffne dein neues Geschenk.", "draw", `swap-accept-${request.id}`, acceptRefusals);
-    });
+    // Over the limit there is no accept button. After a swap the gift panel holds the new recipient, wrapped again: focus goes to its heading.
+    if (accept) {
+      onConfirmedClick(accept, status, () => {
+        void run(() => acceptSwapRequest(token, request.id), "Getauscht. Öffne dein neues Geschenk.", "draw", `swap-accept-${request.id}`, acceptRefusals);
+      });
+    }
     decline.addEventListener("click", () => {
       void run(() => declineSwapRequest(token, request.id), `Tauschanfrage von ${request.sender.name} abgelehnt.`, "swaps");
     });

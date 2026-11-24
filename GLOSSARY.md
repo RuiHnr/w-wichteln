@@ -89,7 +89,7 @@ A giver's proposal to another giver to perform a swap, which the other accepts o
 _UI_: Tauschanfrage
 
 **Swap Limit**:
-The maximum number of completed swaps each participant may take part in, set by the organizer; zero disables swapping.
+The maximum number of completed swaps each participant may take part in, set by the organizer; zero disables swapping. Lowering it never undoes completed swaps and never removes open Swap Requests: they stay, but cannot be accepted until the limit allows it again.
 _UI_: Tausch-Limit
 _Avoid_: Swap quota, request limit
 
