@@ -76,7 +76,8 @@ describe("the draw respects exclusions", () => {
       expect(seen.get("Ina")).not.toBe("Tom");
       expect(seen.get("Tom")).not.toBe("Ina");
     }
-  });
+    // Ten full set-up-and-draw rounds through the handlers exceed the 5 s default on slow CI runners.
+  }, 20_000);
 });
 
 describe("nobody sees all assignments (ADR 0003)", () => {
