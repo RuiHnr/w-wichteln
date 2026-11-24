@@ -205,6 +205,10 @@ export async function removeExclusion(
 /** SQL: the number of participants of the `groups` row in scope. */
 const PARTICIPANT_COUNT = "(SELECT COUNT(*) FROM participants p WHERE p.group_id = groups.id)";
 
+/** SQL: an open group has no assignments, so drop any rows it has. Binds group id twice. */
+const DROP_ASSIGNMENTS_IF_OPEN =
+  "DELETE FROM assignments WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'";
+
 /** How often the draw is retried when the group changed while it was being drawn. */
 const DRAW_ATTEMPTS = 3;
 
@@ -271,7 +275,7 @@ async function writeDraw(db: D1Database, tokenHash: string, groupId: string, ass
       .bind(groupId),
     // A group that is still open has no assignments: drop the rows of a draw that did not go through.
     db
-      .prepare("DELETE FROM assignments WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'")
+      .prepare(DROP_ASSIGNMENTS_IF_OPEN)
       .bind(groupId, groupId),
   ];
   const [, drawn] = await db.batch(statements);
@@ -292,7 +296,7 @@ export async function resetGroup(db: D1Database, token: string, groupId: string)
       .prepare(`UPDATE groups SET phase = 'open' WHERE id = ? AND phase = 'drawn' AND ${CALLER_IS_ORGANIZER} RETURNING id`)
       .bind(groupId, await hashToken(token), groupId),
     db
-      .prepare("DELETE FROM assignments WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'")
+      .prepare(DROP_ASSIGNMENTS_IF_OPEN)
       .bind(groupId, groupId),
   ]);
   if (reopened.results.length === 1) return changed(db, token);

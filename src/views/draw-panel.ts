@@ -36,9 +36,9 @@ function startDraw(me: Me): string {
 export function resetPanel(): string {
   return `
     <section class="panel stack" aria-labelledby="reset-heading">
-      <h2 class="panel__title" id="reset-heading" tabindex="-1" data-focus="reset">Zurücksetzen</h2>
+      <h2 class="panel__title" id="reset-heading">Zurücksetzen</h2>
       <p class="panel__text">Hat jemand abgesagt oder fehlt noch wer? Setz die Auslosung zurück. Dann ist die Anmeldung wieder offen, du kannst Teilnehmer und Ausschlüsse ändern und neu auslosen.</p>
-      <button class="btn btn--danger draw__start" type="button" data-reset-open data-focus="reset-open">Auslosung zurücksetzen</button>
+      <button class="btn btn--danger reset__open" type="button" data-reset-open>Auslosung zurücksetzen</button>
       <dialog class="dialog stack" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-text" data-reset-dialog>
         <h2 class="panel__title" id="reset-dialog-title">Auslosung zurücksetzen?</h2>
         <p class="panel__text" id="reset-dialog-text">Alle Zuteilungen werden gelöscht. Bei der nächsten Auslosung bekommt jeder einen neuen Beschenkten, auch wer seinen schon kennt.</p>

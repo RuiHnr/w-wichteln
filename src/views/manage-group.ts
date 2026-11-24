@@ -261,9 +261,12 @@ export function wireManage(
     const status = main.querySelector<HTMLElement>("[data-reset-status]")!;
     open.addEventListener("click", () => dialog.showModal());
     dialog.querySelector("[data-reset-cancel]")!.addEventListener("click", () => dialog.close());
-    // A click on the backdrop lands on the dialog itself and cancels too.
+    // A click on the backdrop cancels too. It lands on the dialog itself, as does one on its padding, so check where.
     dialog.addEventListener("click", (event) => {
-      if (event.target === dialog) dialog.close();
+      if (event.target !== dialog) return;
+      const box = dialog.getBoundingClientRect();
+      const inside = event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+      if (!inside) dialog.close();
     });
     dialog.querySelector("[data-reset-confirm]")!.addEventListener("click", () => {
       dialog.close();

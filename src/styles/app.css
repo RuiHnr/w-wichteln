@@ -372,12 +372,14 @@ html {
 }
 
 /* Draw: the start button, then the one name the participant gives to */
-.draw__start {
+.draw__start,
+.reset__open {
   justify-self: start;
 }
 
 @media (max-width: 479px) {
-  .draw__start {
+  .draw__start,
+  .reset__open {
     justify-self: stretch;
   }
 }

@@ -47,7 +47,7 @@ describe("DELETE /api/groups/:groupId/draw (Reset)", () => {
 
   it("opens the group again for latecomers, removals and exclusions, and a new draw includes them", async () => {
     const { lea, everyone, groupId } = await drawnGroupWith("Max", "Ina", "Tom");
-    const [, max, ina] = everyone;
+    const [, max, ina, tom] = everyone;
 
     await reset(lea.token, groupId);
 
@@ -68,7 +68,7 @@ describe("DELETE /api/groups/:groupId/draw (Reset)", () => {
     expect(excluded.status).toBe(200);
 
     expect((await draw(lea.token, groupId)).group.phase).toBe("drawn");
-    const givers = [lea, ina, everyone[3], ben];
+    const givers = [lea, ina, tom, ben];
     const seen = new Map<string, string>();
     for (const { token } of givers) {
       const me = await meWith(token);
@@ -107,7 +107,9 @@ describe("DELETE /api/groups/:groupId/draw refused", () => {
     const byMax = await reset(everyone[1].token, groupId);
     expect(byMax.status).toBe(403);
     expect(await byMax.json()).toEqual({ error: "not_organizer" });
-    expect((await reset(theirs.token, groupId)).status).toBe(403);
+    const byOutsider = await reset(theirs.token, groupId);
+    expect(byOutsider.status).toBe(403);
+    expect(await byOutsider.json()).toEqual({ error: "not_organizer" });
     expect((await reset(null, groupId)).status).toBe(401);
     expect((await reset("nope", groupId)).status).toBe(401);
 
