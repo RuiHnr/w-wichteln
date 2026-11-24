@@ -4,7 +4,7 @@ import { validateGroupSettings } from "../../shared/group-input";
 import type { OrganizerActionResult } from "../api";
 import { addExclusion, fetchMe, removeExclusion, removeParticipant, setOrganizer, updateSettings } from "../api";
 import { escapeHtml } from "../html";
-import { budgetInputValue, fieldErrorMessage, manageErrorMessages } from "../messages";
+import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErrorMessages } from "../messages";
 import { localToday } from "../today";
 
 /**
@@ -13,10 +13,14 @@ import { localToday } from "../today";
  * enforces the same rules.
  */
 
-/** What happened after an organizer action, and which control (by `data-focus`) keeps the focus. */
+/**
+ * What happened after an organizer action, and which control (by `data-focus`) keeps the
+ * focus; `fallback` when that control is gone from the fresh view.
+ */
 export interface AfterAction {
   status: string;
   focus?: string;
+  fallback?: string;
 }
 
 /** How the group page shows the caller's fresh view after an action. */
@@ -55,12 +59,10 @@ export function settingsPanel({ group }: Me): string {
 }
 
 /** Both names of an exclusion, in the order the group lists its participants. */
-export function exclusionNames(me: Me, exclusion: ExclusionView): [string, string] {
+export function exclusionNames(me: Me, exclusion: Pick<ExclusionView, "participantIds">): [string, string] {
   const [first, second] = me.participants.filter((p) => exclusion.participantIds.includes(p.id));
-  return [first.name, second.name];
+  return [first?.name ?? "?", second?.name ?? "?"];
 }
-
-const SAME_PARTICIPANT = "Wähl zwei verschiedene Teilnehmer.";
 
 /** The panel listing the exclusions, with the form to add one while the group is open. */
 export function exclusionsPanel(me: Me): string {
@@ -87,7 +89,7 @@ export function exclusionsPanel(me: Me): string {
 
   return `
     <section class="panel stack" aria-labelledby="exclusions-heading">
-      <h2 class="panel__title" id="exclusions-heading" tabindex="-1">Ausschlüsse <span class="panel__count">${exclusions.length}</span></h2>
+      <h2 class="panel__title" id="exclusions-heading" tabindex="-1" data-focus="exclusions">Ausschlüsse <span class="panel__count">${exclusions.length}</span></h2>
       <p class="panel__text">Zwei Teilnehmer mit Ausschluss beschenken sich nicht gegenseitig, zum Beispiel ein Paar. Nur Organisatoren sehen diese Liste.</p>
       ${list}
       ${footer}
@@ -167,10 +169,10 @@ export function wireManage(
   let busy = false;
 
   /** A refused action: show the current state, then say why. */
-  async function refused(error: ManageError, status: HTMLElement, focus?: string): Promise<void> {
+  async function refused(error: ManageError, status: HTMLElement, focus?: string, fallback?: string): Promise<void> {
     if (error === "unknown_token") return onUnrecognised();
     const fresh = await fetchMe(token).catch(() => null);
-    if (fresh) rerender(fresh, { status: manageErrorMessages[error], focus });
+    if (fresh) rerender(fresh, { status: manageErrorMessages[error], focus, fallback });
     else status.textContent = manageErrorMessages[error];
   }
 
@@ -180,14 +182,15 @@ export function wireManage(
     success: (me: Me) => string,
     focus?: string,
     onFieldErrors?: (errors: FieldErrors) => void,
+    fallback?: string,
   ): Promise<void> {
     if (busy) return;
     busy = true;
     try {
       const result = await request();
-      if (result.ok) rerender(result.me, { status: success(result.me), focus });
+      if (result.ok) rerender(result.me, { status: success(result.me), focus, fallback });
       else if ("errors" in result) onFieldErrors?.(result.errors);
-      else await refused(result.error, status, focus);
+      else await refused(result.error, status, focus, fallback);
     } catch {
       status.textContent = NETWORK_ERROR;
     } finally {
@@ -231,8 +234,8 @@ export function wireManage(
 
   function wireExclusions(): void {
     const status = main.querySelector<HTMLElement>("[data-exclusions-status]")!;
-    // After a removal the button is gone; the add button stays (an exclusion means two participants).
-    const focus = "exclusion-add";
+    // Focus stays on the add button; without the form (say, the group was drawn meanwhile) it goes to the heading.
+    const [focus, fallback] = ["exclusion-add", "exclusions"];
 
     for (const button of main.querySelectorAll<HTMLButtonElement>("[data-exclusion]")) {
       const exclusion = me.exclusions!.find((e) => e.id === button.dataset.exclusion)!;
@@ -243,6 +246,8 @@ export function wireManage(
           status,
           () => `${a} und ${b} können sich jetzt wieder gegenseitig beschenken.`,
           focus,
+          undefined,
+          fallback,
         );
       });
     }
@@ -262,20 +267,17 @@ export function wireManage(
       event.preventDefault();
       const data = new FormData(exclusionForm);
       const ids: [string, string] = [String(data.get("exclusion-a")), String(data.get("exclusion-b"))];
-      if (ids[0] === ids[1]) return showError(SAME_PARTICIPANT);
+      if (ids[0] === ids[1]) return showError(exclusionErrorMessages.same);
       showError("");
-      const [a, b] = ids.map((id) => me.participants.find((p) => p.id === id)!.name);
-      const exists = me.exclusions?.some((e) => e.participantIds.includes(ids[0]) && e.participantIds.includes(ids[1]));
-      if (exists) {
-        status.textContent = `${a} und ${b} haben schon einen Ausschluss.`;
-        return;
-      }
+      // Adding a pair that exists already changes nothing on the server, so it reads as success here too.
+      const [a, b] = exclusionNames(me, { participantIds: ids });
       void run(
         () => addExclusion(token, me.group.id, ids),
         status,
         () => `${a} und ${b} beschenken sich nicht gegenseitig.`,
         focus,
-        (errors) => showError(errors.participantIds === "same" ? SAME_PARTICIPANT : "Wähl zwei Teilnehmer aus der Liste."),
+        (errors) => showError(exclusionErrorMessages[errors.participantIds]),
+        fallback,
       );
     });
   }

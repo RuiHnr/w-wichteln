@@ -106,7 +106,8 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
 
 /** Puts focus back near the control that was used and announces the outcome there. */
 function restoreFocus(main: HTMLElement, after: AfterAction): void {
-  const control = after.focus ? main.querySelector<HTMLElement>(`[data-focus="${CSS.escape(after.focus)}"]`) : null;
+  const find = (focus?: string) => (focus ? main.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focus)}"]`) : null);
+  const control = find(after.focus) ?? find(after.fallback);
   (control ?? main.querySelector<HTMLElement>("#participants-heading"))!.focus();
   const status =
     control?.closest(".panel")?.querySelector<HTMLElement>("[role=status]") ?? main.querySelector<HTMLElement>("[data-people-status]")!;
