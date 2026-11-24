@@ -68,7 +68,7 @@ _UI_: Gruppenbild
 _Avoid_: Cover, banner, logo
 
 **Participant Picture**:
-An optional photo a participant sets, changes or removes for themselves; without one, their initials stand in.
+An optional photo a participant sets, changes or removes for themselves; no one else can change or remove it, not even an organizer. Without one, their initials stand in.
 _UI_: Profilbild
 _Avoid_: Avatar, user picture
 

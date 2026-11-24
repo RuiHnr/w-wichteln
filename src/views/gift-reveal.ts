@@ -1,6 +1,7 @@
 import type { RecipientView } from "../../shared/api";
 import { escapeHtml } from "../html";
 import type { RevealState } from "../reveal";
+import { avatar } from "./picture-panel";
 import { recipientWishlist } from "./wishlist-panel";
 import { prefersReducedMotion } from "../reveal";
 
@@ -45,7 +46,7 @@ export function giftRevealPanel(recipient: RecipientView, state: RevealState): s
       <h2 class="draw__label" id="draw-heading" tabindex="-1" data-focus="draw">Du beschenkst</h2>
       <div class="reveal__stage">
         <button class="gift" type="button" data-gift aria-label="Geschenk auspacken">${giftArt}</button>
-        <p class="draw__name reveal__name" tabindex="-1" data-reveal-name><span class="visually-hidden">Du beschenkst </span>${escapeHtml(recipient.name)}</p>
+        <p class="draw__name reveal__name" tabindex="-1" data-reveal-name><span class="visually-hidden">Du beschenkst </span>${avatar(recipient.name, recipient.picture, "large")}${escapeHtml(recipient.name)}</p>
         <div class="confetti" aria-hidden="true" data-confetti></div>
       </div>
       <div class="reveal__foot">

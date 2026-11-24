@@ -106,7 +106,7 @@ export async function setSwapLimit(db: D1Database, token: string, groupId: strin
 }
 
 /**
- * Removes a participant while the group is open. Removing yourself is refused: it would
+ * Removes a participant, with their Participant Picture, while the group is open. Removing yourself is refused: it would
  * cut you off from the group, and leaving is not something this action offers. Since the
  * caller is an organizer who stays, the last organizer is never removed; the statement
  * still guards that invariant itself.
@@ -118,17 +118,16 @@ export async function removeParticipant(
   participantId: string,
 ): Promise<ManageResult> {
   const tokenHash = await hashToken(token);
-  const deleted = await db
-    .prepare(
-      `DELETE FROM participants
-        WHERE id = ? AND group_id = ? AND token_hash != ?
+  const removable = `id = ? AND group_id = ? AND token_hash != ?
           AND (SELECT phase FROM groups WHERE id = participants.group_id) = 'open'
           AND ${NOT_LAST_ORGANIZER}
-          AND ${CALLER_IS_ORGANIZER}
-        RETURNING id`,
-    )
-    .bind(participantId, groupId, tokenHash, tokenHash, groupId)
-    .all();
+          AND ${CALLER_IS_ORGANIZER}`;
+  const binds = [participantId, groupId, tokenHash, tokenHash, groupId];
+  // One batch: their Participant Picture goes with them, under the same condition.
+  const [, deleted] = await db.batch<{ id: string }>([
+    db.prepare(`DELETE FROM pictures WHERE key = (SELECT picture_key FROM participants WHERE ${removable})`).bind(...binds),
+    db.prepare(`DELETE FROM participants WHERE ${removable} RETURNING id`).bind(...binds),
+  ]);
   // Not meta.changes: D1 counts the exclusions removed with the participant (ON DELETE CASCADE) too.
   if (deleted.results.length === 1) return changed(db, token);
   return { ok: false, reason: await whyRefused(db, token, groupId, participantId, { self: true, drawn: true }) };

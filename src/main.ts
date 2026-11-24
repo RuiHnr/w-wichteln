@@ -8,6 +8,7 @@ import { fetchInvite, fetchMe, groupStillExists } from "./api";
 import { showMessage } from "./html";
 import { createIdentityStore } from "./identity";
 import { groupPath } from "./links";
+import { PICTURE_LATER_NOTE } from "./messages";
 import { startSnowfall } from "./snowfall";
 import { renderCreateGroup } from "./views/create-group";
 import { renderGroupGone, renderGroupPage, renderNotRecognised } from "./views/group-page";
@@ -69,10 +70,12 @@ function showOffline(): void {
  * Remembers the participant on this device and shows their group page under its own address.
  * Someone who just created or joined the group saves their Personal Link first.
  */
-function enterGroup({ token, me }: CreateGroupResponse, navigate: "push" | "replace", justArrived = false): void {
+function enterGroup({ token, me }: CreateGroupResponse, navigate: "push" | "replace", justArrived = false, pictureFailed = false): void {
   identity.remember(me.group.id, token);
   history[navigate === "push" ? "pushState" : "replaceState"](null, "", groupPath(me.group.id));
-  if (justArrived) return renderSaveLink(main, me.group.name, token, () => renderGroupPage(main, me, token));
+  if (justArrived) {
+    return renderSaveLink(main, me.group.name, token, () => renderGroupPage(main, me, token), pictureFailed ? PICTURE_LATER_NOTE : "");
+  }
   renderGroupPage(main, me, token);
 }
 
@@ -91,7 +94,7 @@ async function showJoin(inviteCode: string): Promise<void> {
     if (token) identity.forget(invite.group.id);
 
     if (invite.group.phase !== "open") return renderJoinClosed(main);
-    renderJoinGroup(main, inviteCode, invite, (joined) => enterGroup(joined, "push", true));
+    renderJoinGroup(main, inviteCode, invite, (joined, pictureFailed) => enterGroup(joined, "push", true, pictureFailed));
   } catch {
     showOffline();
   }
@@ -131,7 +134,7 @@ function route(): void {
   const personal = segment("p");
 
   if (path === "/") {
-    renderCreateGroup(main, (created) => enterGroup(created, "push", true));
+    renderCreateGroup(main, (created, pictureFailed) => enterGroup(created, "push", true, pictureFailed));
   } else if (group) {
     void showGroup(decodeURIComponent(group));
   } else if (invite) {

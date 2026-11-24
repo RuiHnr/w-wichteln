@@ -1,5 +1,6 @@
 import type { ExclusionView, GroupPhase, GroupView, InviteResponse, Me, ParticipantView, RecipientView, SwapsView } from "../../shared/api";
 import { DEFAULT_SWAP_LIMIT, type GroupInput } from "../../shared/group-input";
+import { pictureUrl } from "./picture-storage";
 import { hashToken, newInviteCode, newToken } from "./tokens";
 
 /** Creates a group with its creator as first organizer and participant. */
@@ -45,7 +46,7 @@ export async function findInvite(db: D1Database, inviteCode: string): Promise<In
     .bind(inviteCode)
     .first<GroupRow>();
   if (!row) return null;
-  const { inviteCode: _notShown, swapLimit: _alsoNotShown, ...group } = toGroupView(row);
+  const { inviteCode: _notShown, swapLimit: _alsoNotShown, picture: _neither, ...group } = toGroupView(row);
   return { group };
 }
 
@@ -90,12 +91,14 @@ interface GroupRow {
   phase: GroupPhase;
   invite_code: string;
   swap_limit: number;
+  picture_key?: string | null;
 }
 
 interface ParticipantRow {
   id: string;
   name: string;
   is_organizer: number;
+  picture_key: string | null;
   link_renewed_by: string | null;
   link_renewed_by_id: string | null;
   link_renewed_at: string | null;
@@ -105,6 +108,7 @@ interface MeRow extends GroupRow {
   participant_id: string;
   participant_name: string;
   is_organizer: number;
+  participant_picture_key?: string | null;
   wishlist: string;
 }
 
@@ -118,8 +122,9 @@ const WISHLIST_OF_P = "COALESCE((SELECT w.text FROM wishlists w WHERE w.particip
 export async function findMe(db: D1Database, token: string): Promise<Me | null> {
   const row = await db
     .prepare(
-      `SELECT g.id AS group_id, g.name AS group_name, g.budget_cents, g.exchange_date, g.phase, g.invite_code, g.swap_limit,
-              p.id AS participant_id, p.name AS participant_name, p.is_organizer, ${WISHLIST_OF_P} AS wishlist
+      `SELECT g.id AS group_id, g.name AS group_name, g.budget_cents, g.exchange_date, g.phase, g.invite_code, g.swap_limit, g.picture_key,
+              p.id AS participant_id, p.name AS participant_name, p.is_organizer, p.picture_key AS participant_picture_key,
+              ${WISHLIST_OF_P} AS wishlist
          FROM participants p JOIN groups g ON g.id = p.group_id
         WHERE p.token_hash = ?`,
     )
@@ -128,7 +133,7 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
   if (!row) return null;
   const { results } = await db
     .prepare(
-      `SELECT id, name, is_organizer, link_renewed_by, link_renewed_by_id, link_renewed_at
+      `SELECT id, name, is_organizer, picture_key, link_renewed_by, link_renewed_by_id, link_renewed_at
          FROM participants WHERE group_id = ? ORDER BY created_at, rowid`,
     )
     .bind(row.group_id)
@@ -137,6 +142,7 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
     row,
     results.map((p) => {
       const view: ParticipantView = { id: p.id, name: p.name, isOrganizer: p.is_organizer === 1 };
+      if (p.picture_key) view.picture = pictureUrl(row.group_id, p.picture_key);
       if (p.link_renewed_by !== null && p.link_renewed_by_id !== null && p.link_renewed_at !== null) {
         view.linkRenewal = { by: p.link_renewed_by, byId: p.link_renewed_by_id, at: p.link_renewed_at };
       }
@@ -144,7 +150,7 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
     }),
   );
   if (row.phase === "drawn") {
-    const recipient = await findRecipient(db, row.participant_id);
+    const recipient = await findRecipient(db, row.participant_id, row.group_id);
     if (recipient) me.recipient = recipient;
     me.swaps = await findSwaps(db, row.participant_id);
   }
@@ -155,15 +161,19 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
  * The recipient of one giver's assignment, with their wishlist: the only assignment the API
  * ever reads (ADR 0003), and the only wishlist besides the caller's own.
  */
-async function findRecipient(db: D1Database, giverId: string): Promise<RecipientView | null> {
-  return db
+async function findRecipient(db: D1Database, giverId: string, groupId: string): Promise<RecipientView | null> {
+  const row = await db
     .prepare(
-      `SELECT p.id, p.name, ${WISHLIST_OF_P} AS wishlist
+      `SELECT p.id, p.name, p.picture_key, ${WISHLIST_OF_P} AS wishlist
          FROM assignments a JOIN participants p ON p.id = a.recipient_id
         WHERE a.giver_id = ?`,
     )
     .bind(giverId)
-    .first<RecipientView>();
+    .first<{ id: string; name: string; picture_key: string | null; wishlist: string }>();
+  if (!row) return null;
+  const recipient: RecipientView = { id: row.id, name: row.name, wishlist: row.wishlist };
+  if (row.picture_key) recipient.picture = pictureUrl(groupId, row.picture_key);
+  return recipient;
 }
 
 /**
@@ -211,7 +221,7 @@ async function findExclusions(db: D1Database, groupId: string): Promise<Exclusio
 }
 
 function toGroupView(row: GroupRow): GroupView {
-  return {
+  const view: GroupView = {
     id: row.group_id,
     name: row.group_name,
     budgetCents: row.budget_cents,
@@ -220,12 +230,20 @@ function toGroupView(row: GroupRow): GroupView {
     inviteCode: row.invite_code,
     swapLimit: row.swap_limit,
   };
+  if (row.picture_key) view.picture = pictureUrl(row.group_id, row.picture_key);
+  return view;
+}
+
+function toParticipantView(row: MeRow): ParticipantView {
+  const view: ParticipantView = { id: row.participant_id, name: row.participant_name, isOrganizer: row.is_organizer === 1 };
+  if (row.participant_picture_key) view.picture = pictureUrl(row.group_id, row.participant_picture_key);
+  return view;
 }
 
 function toMe(row: MeRow, participants: ParticipantView[]): Me {
   return {
     group: toGroupView(row),
-    participant: { id: row.participant_id, name: row.participant_name, isOrganizer: row.is_organizer === 1 },
+    participant: toParticipantView(row),
     wishlist: row.wishlist,
     participants,
   };

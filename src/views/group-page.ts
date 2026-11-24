@@ -14,6 +14,7 @@ import { groupFacts, phaseLabel } from "./group-facts";
 import type { AfterAction, Rerender } from "./page-actions";
 import { linkRow, wireLinkRows } from "./link-row";
 import { exclusionsPanel, participantActions, settingsPanel, swapLimitPanel, wireManage } from "./manage-group";
+import { avatar, groupPicture, groupPicturePanel, ownPicturePanel, wirePictures } from "./picture-panel";
 import { linkNotice, wireLinkNotice } from "./save-link";
 import { swapPanel, wireSwaps } from "./swap-panel";
 import { wireWishlist, wishlistPanel } from "./wishlist-panel";
@@ -28,7 +29,7 @@ function participantList(me: Me): string {
       const renewal = p.linkRenewal
         ? `<span class="people__note">${escapeHtml(linkRenewalNote(p.linkRenewal, me.participant.id))}</span>`
         : "";
-      return `<li class="people__item"><span class="people__name">${escapeHtml(p.name)}${you}${organizer}${renewal}</span>${actions}</li>`;
+      return `<li class="people__item">${avatar(p.name, p.picture)}<span class="people__name">${escapeHtml(p.name)}${you}${organizer}${renewal}</span>${actions}</li>`;
     })
     .join("");
   return `
@@ -44,6 +45,7 @@ function markup(me: Me, token: string, reveal: RevealState, rerender: boolean, s
   const role = participant.isOrganizer ? "Organisator" : "Teilnehmer";
   return `
     <section class="view"${rerender ? " data-still" : ""}>
+      ${groupPicture(me)}
       <header class="view__head">
         <p class="view__eyebrow">${phaseLabel[group.phase]}</p>
         <h1 class="view__title" tabindex="-1">${escapeHtml(group.name)}</h1>
@@ -58,11 +60,15 @@ function markup(me: Me, token: string, reveal: RevealState, rerender: boolean, s
 
       ${wishlistPanel(me)}
 
+      ${ownPicturePanel(me)}
+
       ${participantList(me)}
 
       ${group.phase === "open" ? drawPanel(me, reveal) : participant.isOrganizer ? resetPanel() : ""}
 
       ${participant.isOrganizer ? exclusionsPanel(me) : ""}
+
+      ${participant.isOrganizer ? groupPicturePanel(me) : ""}
 
       ${participant.isOrganizer ? settingsPanel(me) : ""}
 
@@ -129,6 +135,7 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
   if (recipient) wireGiftReveal(main, () => reveals.rememberUnwrapped(group.id, recipient.id));
   const unrecognised = () => void showTokenStopped(main, group.id);
   wireWishlist(main, token, rerender, unrecognised);
+  wirePictures(main, me, token, rerender, unrecognised);
   wireSwaps(main, me, token, rerender, unrecognised);
   if (me.participant.isOrganizer) {
     wireManage(main, me, token, rerender, unrecognised);
