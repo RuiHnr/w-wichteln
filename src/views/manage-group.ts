@@ -45,7 +45,7 @@ export function settingsPanel({ group }: Me): string {
     </section>`;
 }
 
-/** The panel to set the Tausch-Limit, 0 to 5; each choice is saved as soon as it is made. */
+/** The panel to set the Tausch-Limit, 0 to 5; each choice is saved as soon as it is made, except 0, which asks first. */
 export function swapLimitPanel({ group }: Me): string {
   const options = Array.from({ length: MAX_SWAP_LIMIT + 1 }, (_, n) => {
     const checked = n === group.swapLimit;
@@ -54,10 +54,18 @@ export function swapLimitPanel({ group }: Me): string {
   return `
     <section class="panel stack" aria-labelledby="swap-limit-heading">
       <h2 class="panel__title" id="swap-limit-heading" tabindex="-1" data-focus="swap-limit-heading">Tausch-Limit</h2>
-      <p class="panel__text">So viele Tausche darf jede Person höchstens machen. Bei 0 ist Tauschen ausgeschaltet. Was schon getauscht ist, bleibt bestehen.</p>
+      <p class="panel__text">So viele Tausche darf jede Person höchstens machen. Bei 0 ist Tauschen ausgeschaltet. Was schon getauscht ist, bleibt bestehen, und offene Anfragen auch, bis das Limit sie wieder zulässt.</p>
       <fieldset class="segments" data-swap-limit aria-labelledby="swap-limit-heading">
         ${options}
       </fieldset>
+      <dialog class="dialog stack" aria-labelledby="swap-off-title" aria-describedby="swap-off-text" data-swap-off-dialog>
+        <h2 class="panel__title" id="swap-off-title">Tauschen ausschalten?</h2>
+        <p class="panel__text" id="swap-off-text">Dann kann niemand mehr tauschen. Offene Tauschanfragen bleiben, lassen sich aber nicht annehmen, bis du das Limit wieder erhöhst. Was schon getauscht ist, bleibt.</p>
+        <div class="dialog__actions">
+          <button class="btn btn--secondary" type="button" data-swap-off-cancel autofocus>Abbrechen</button>
+          <button class="btn btn--danger btn--danger-fill" type="button" data-swap-off-confirm>Ausschalten</button>
+        </div>
+      </dialog>
       <p class="form__status" role="status" data-swap-limit-status></p>
     </section>`;
 }
@@ -232,19 +240,51 @@ export function wireManage(
   wireSwapLimit();
 
   function wireSwapLimit(): void {
-    const fieldset = main.querySelector<HTMLFieldSetElement>("[data-swap-limit]");
-    if (!fieldset) return;
+    const found = main.querySelector<HTMLFieldSetElement>("[data-swap-limit]");
+    if (!found) return;
+    const fieldset: HTMLFieldSetElement = found;
     const status = main.querySelector<HTMLElement>("[data-swap-limit-status]")!;
-    fieldset.addEventListener("change", (event) => {
-      const limit = Number((event.target as HTMLInputElement).value);
+    const dialog = main.querySelector<HTMLDialogElement>("[data-swap-off-dialog]")!;
+    const storedRadio = () => fieldset.querySelector<HTMLInputElement>(`input[value="${me.group.swapLimit}"]`);
+
+    function save(limit: number): void {
       const success = () => (limit === 0 ? "Tauschen ist ausgeschaltet." : `Tausch-Limit auf ${limit} gesetzt.`);
       // One save at a time: while it runs the choices are off, and a failed save shows the stored limit again.
       fieldset.disabled = true;
       void run(() => updateSwapLimit(token, me.group.id, limit), status, success, "swap-limit", undefined, "swap-limit-heading").finally(() => {
         fieldset.disabled = false;
-        const stored = fieldset.querySelector<HTMLInputElement>(`input[value="${me.group.swapLimit}"]`);
-        if (stored && fieldset.isConnected) stored.checked = true;
+        if (fieldset.isConnected) storedRadio()!.checked = true;
       });
+    }
+
+    // 0 turns swapping off, so it asks first. The radio goes back to the stored limit at once and the
+    // dialog decides; this also covers the arrow keys, including the step from 5 round to 0.
+    fieldset.addEventListener("change", (event) => {
+      const limit = Number((event.target as HTMLInputElement).value);
+      if (limit !== 0) return save(limit);
+      storedRadio()!.checked = true;
+      dialog.showModal();
+    });
+    // Cancelling, by button, Escape or backdrop, puts the focus back on the stored limit's radio.
+    dialog.addEventListener("close", () => {
+      if (dialog.returnValue !== "confirm") storedRadio()?.focus();
+      dialog.returnValue = "";
+    });
+    dialog.querySelector("[data-swap-off-cancel]")!.addEventListener("click", () => dialog.close());
+    closeOnBackdropClick(dialog);
+    dialog.querySelector("[data-swap-off-confirm]")!.addEventListener("click", () => {
+      dialog.close("confirm");
+      save(0);
+    });
+  }
+
+  /** A click on the backdrop cancels too. It lands on the dialog itself, as does one on its padding, so check where. */
+  function closeOnBackdropClick(dialog: HTMLDialogElement): void {
+    dialog.addEventListener("click", (event) => {
+      if (event.target !== dialog) return;
+      const box = dialog.getBoundingClientRect();
+      const inside = event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+      if (!inside) dialog.close();
     });
   }
 
@@ -255,13 +295,7 @@ export function wireManage(
     const status = main.querySelector<HTMLElement>("[data-reset-status]")!;
     open.addEventListener("click", () => dialog.showModal());
     dialog.querySelector("[data-reset-cancel]")!.addEventListener("click", () => dialog.close());
-    // A click on the backdrop cancels too. It lands on the dialog itself, as does one on its padding, so check where.
-    dialog.addEventListener("click", (event) => {
-      if (event.target !== dialog) return;
-      const box = dialog.getBoundingClientRect();
-      const inside = event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
-      if (!inside) dialog.close();
-    });
+    closeOnBackdropClick(dialog);
     dialog.querySelector("[data-reset-confirm]")!.addEventListener("click", () => {
       dialog.close();
       // The group is open again: focus goes to the start button of the draw, or its heading when too few are left.

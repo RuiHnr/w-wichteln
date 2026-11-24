@@ -106,16 +106,22 @@ describe("a changed Swap Limit", () => {
     expect(await response.json()).toEqual({ error: "limit_reached" });
   });
 
-  it("with limit 0 expires open requests, so none can be accepted", async () => {
+  it("with limit 0 keeps an open request, refuses to accept it, and accepts it once raised", async () => {
     const { givers, groupId, organizer } = await drawnGroup();
     const [a, b] = swappablePairs(givers)[0];
     const sent = await (await send(a.token, b.id)).json<Me>();
+    const requestId = sent.swaps!.outgoing!.id;
 
     await setLimit(organizer, groupId, 0);
 
-    expect((await accept(b.token, sent.swaps!.outgoing!.id)).status).toBe(404);
-    expect((await meWith(b.token)).swaps!.incoming).toEqual([]);
-    expect((await meWith(a.token)).swaps!.outgoing).toBeUndefined();
+    expect((await meWith(a.token)).swaps!.outgoing?.id).toBe(requestId);
+    expect((await meWith(b.token)).swaps!.incoming.map((r) => r.id)).toEqual([requestId]);
+    const refused = await accept(b.token, requestId);
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toEqual({ error: "limit_reached" });
+
+    await setLimit(organizer, groupId, 1);
+    expect((await accept(b.token, requestId)).status).toBe(200);
   });
 
   it("keeps an open request of two givers still under the new limit", async () => {
@@ -126,7 +132,7 @@ describe("a changed Swap Limit", () => {
     expect((await meWith(a.token)).swaps!.outgoing).toBeDefined();
   });
 
-  it("expires an open request when its sender is at the lowered limit", async () => {
+  it("keeps an open request whose sender is at the lowered limit, refuses it as partner_limit_reached, and accepts it once raised", async () => {
     // After a first swap not every draw leaves a valid second partner, so draw again until one does.
     let open: { sender: Giver; receiver: Giver; groupId: string; organizer: string } | undefined;
     for (let attempt = 0; attempt < 30 && !open; attempt++) {
@@ -142,11 +148,18 @@ describe("a changed Swap Limit", () => {
       }
     }
     if (!open) throw new Error("no draw left a second swap partner in 30 tries");
+    const requestId = (await meWith(open.sender.token)).swaps!.outgoing!.id;
 
     await setLimit(open.organizer, open.groupId, 1);
 
-    expect((await meWith(open.sender.token)).swaps!.outgoing).toBeUndefined();
-    expect((await meWith(open.receiver.token)).swaps!.incoming).toEqual([]);
+    expect((await meWith(open.sender.token)).swaps!.outgoing?.id).toBe(requestId);
+    expect((await meWith(open.receiver.token)).swaps!.incoming.map((r) => r.id)).toEqual([requestId]);
+    const refused = await accept(open.receiver.token, requestId);
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toEqual({ error: "partner_limit_reached" });
+
+    await setLimit(open.organizer, open.groupId, 2);
+    expect((await accept(open.receiver.token, requestId)).status).toBe(200);
   });
 
   it("keeps completed swaps when lowered and blocks further ones", async () => {
