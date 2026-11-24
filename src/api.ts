@@ -9,6 +9,7 @@ import type {
   ManageError,
   Me,
   SettingsErrorResponse,
+  SwapError,
   ValidationErrorResponse,
   WishlistErrorResponse,
 } from "../shared/api";
@@ -71,7 +72,7 @@ export async function joinGroup(inviteCode: string, name: string): Promise<JoinG
 /** An organizer action: the caller's fresh view, or why the server refused it. */
 export type OrganizerActionResult = { ok: true; me: Me } | { ok: false; error: ManageError };
 
-/** Sends an organizer action. Throws when the server cannot be reached or fails in a way the API does not describe. */
+/** Sends an action with the caller's token. Throws when the server cannot be reached or fails in a way the API does not describe. */
 async function sendManage(token: string, method: string, path: string, body?: unknown): Promise<Response> {
   return fetch(path, {
     method,
@@ -80,14 +81,17 @@ async function sendManage(token: string, method: string, path: string, body?: un
   });
 }
 
-async function readManage(response: Response, label: string): Promise<OrganizerActionResult> {
+/** An action answered with the caller's fresh view, or with `{ error }` saying why it was refused. */
+async function readAction<E extends string>(response: Response, label: string): Promise<{ ok: true; me: Me } | { ok: false; error: E }> {
   if ([401, 403, 404, 409].includes(response.status)) {
-    const { error } = (await response.json()) as { error: ManageError };
+    const { error } = (await response.json()) as { error: E };
     return { ok: false, error };
   }
   if (!response.ok) throw new Error(`${label} answered ${response.status}`);
   return { ok: true, me: (await response.json()) as Me };
 }
+
+const readManage = (response: Response, label: string): Promise<OrganizerActionResult> => readAction<ManageError>(response, label);
 
 const participantPath = (groupId: string, participantId: string) =>
   `/api/groups/${encodeURIComponent(groupId)}/participants/${encodeURIComponent(participantId)}`;
@@ -168,4 +172,30 @@ export async function saveWishlist(token: string, wishlist: string): Promise<Sav
   }
   if (!response.ok) throw new Error(`PUT /api/me/wishlist answered ${response.status}`);
   return { ok: true, me: (await response.json()) as Me };
+}
+
+/** A Swap Request action: the caller's fresh view, or why the server refused it. */
+export type SwapActionResult = { ok: true; me: Me } | { ok: false; error: SwapError };
+
+const swapRequestsPath = "/api/me/swap-requests";
+const swapRequestPath = (requestId: string) => `${swapRequestsPath}/${encodeURIComponent(requestId)}`;
+
+/** Asks another giver for a swap; refused with blocked, outgoing_open, a limit and so on. */
+export async function sendSwapRequest(token: string, receiverId: string): Promise<SwapActionResult> {
+  return readAction<SwapError>(await sendManage(token, "POST", swapRequestsPath, { receiverId }), "POST /api/me/swap-requests");
+}
+
+/** The sender takes back their open request. */
+export async function withdrawSwapRequest(token: string, requestId: string): Promise<SwapActionResult> {
+  return readAction<SwapError>(await sendManage(token, "DELETE", swapRequestPath(requestId)), "DELETE /api/me/swap-requests");
+}
+
+/** The receiver accepts: the Swap. The fresh view shows their new recipient. */
+export async function acceptSwapRequest(token: string, requestId: string): Promise<SwapActionResult> {
+  return readAction<SwapError>(await sendManage(token, "POST", `${swapRequestPath(requestId)}/accept`), "POST /api/me/swap-requests/accept");
+}
+
+/** The receiver declines; nothing is swapped. */
+export async function declineSwapRequest(token: string, requestId: string): Promise<SwapActionResult> {
+  return readAction<SwapError>(await sendManage(token, "POST", `${swapRequestPath(requestId)}/decline`), "POST /api/me/swap-requests/decline");
 }

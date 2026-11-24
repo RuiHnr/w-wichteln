@@ -151,7 +151,7 @@ function actionButton(action: Action, p: ParticipantView, label: string, ariaLab
  * With `data-confirm`, the first press arms the button and says so in `status`; only a second
  * press within 5 seconds calls `act`. Without it, every press acts.
  */
-function onConfirmedClick(button: HTMLButtonElement, status: HTMLElement, act: () => void): void {
+export function onConfirmedClick(button: HTMLButtonElement, status: HTMLElement, act: () => void): void {
   const label = button.textContent!;
   let disarm: ReturnType<typeof setTimeout> | undefined;
 
