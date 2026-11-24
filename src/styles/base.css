@@ -178,8 +178,11 @@ main:focus {
   *,
   *::before,
   *::after {
-    transition-duration: 0.01ms !important;
+    /* 0s, not a tiny duration: a 0.01ms transition still runs, and still counts as moving */
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
   }
 
