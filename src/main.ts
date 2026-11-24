@@ -71,15 +71,16 @@ async function showJoin(inviteCode: string): Promise<void> {
 }
 
 /**
- * The Personal Link restores identity on this device (ADR 0002). The token leaves the
- * address bar at once, so it does not linger in the history or on screen.
+ * The Personal Link restores identity on this device (ADR 0002). Once the token is stored
+ * or rejected it leaves the address bar, so it does not linger in the history or on screen.
+ * When the server cannot be reached it stays, so a reload can try again.
  */
 async function showPersonal(token: string): Promise<void> {
-  history.replaceState(null, "", "/");
   showLoading("Du wirst erkannt …");
   try {
     const me = await fetchMe(token);
     if (!me) {
+      history.replaceState(null, "", "/");
       return showMessage(main, "Dieser persönliche Link gilt nicht", "Prüf, ob du ihn vollständig kopiert hast.", {
         href: "/",
         label: "Neue Gruppe anlegen",

@@ -59,7 +59,7 @@ function fieldText(source: unknown, field: GroupField): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function checkName(name: string, maxLength: number): "required" | "tooLong" | undefined {
+function checkName(name: string, maxLength: number): ParticipantNameError | undefined {
   if (!name) return "required";
   if ([...name].length > maxLength) return "tooLong";
   return undefined;

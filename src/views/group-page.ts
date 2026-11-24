@@ -1,19 +1,7 @@
-import type { GroupView, Me } from "../../shared/api";
+import type { Me } from "../../shared/api";
 import { escapeHtml, showMessage, showView } from "../html";
 import { inviteLink, personalLink } from "../links";
-import { formatBudget, formatDate } from "../messages";
-
-export const phaseLabel = { open: "Anmeldung offen", drawn: "Ausgelost" } as const;
-
-/** Budget and exchange date, plus any extra rows (already escaped). */
-export function groupFacts(group: Pick<GroupView, "budgetCents" | "exchangeDate">, extraRows = ""): string {
-  return `
-    <dl class="facts">
-      <div class="facts__item"><dt>Budget</dt><dd>${formatBudget(group.budgetCents)}</dd></div>
-      <div class="facts__item"><dt>Bescherung</dt><dd>${formatDate(group.exchangeDate)}</dd></div>
-      ${extraRows}
-    </dl>`;
-}
+import { groupFacts, phaseLabel } from "./group-facts";
 
 function participantList(me: Me): string {
   const items = me.participants

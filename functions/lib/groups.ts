@@ -1,4 +1,4 @@
-import type { GroupPhase, InviteResponse, Me, ParticipantView } from "../../shared/api";
+import type { GroupPhase, GroupView, InviteResponse, Me, ParticipantView } from "../../shared/api";
 import type { GroupInput } from "../../shared/group-input";
 import { hashToken, newInviteCode, newToken } from "./tokens";
 
@@ -37,13 +37,14 @@ export async function createGroup(db: D1Database, input: GroupInput): Promise<{ 
 /** The public facts of the group behind an invite code; null for an unknown code. */
 export async function findInvite(db: D1Database, inviteCode: string): Promise<InviteResponse | null> {
   const row = await db
-    .prepare("SELECT id, name, budget_cents, exchange_date, phase FROM groups WHERE invite_code = ?")
+    .prepare(
+      "SELECT id AS group_id, name AS group_name, budget_cents, exchange_date, phase, invite_code FROM groups WHERE invite_code = ?",
+    )
     .bind(inviteCode)
-    .first<{ id: string; name: string; budget_cents: number; exchange_date: string; phase: GroupPhase }>();
+    .first<GroupRow>();
   if (!row) return null;
-  return {
-    group: { id: row.id, name: row.name, budgetCents: row.budget_cents, exchangeDate: row.exchange_date, phase: row.phase },
-  };
+  const { inviteCode: _notShown, ...group } = toGroupView(row);
+  return { group };
 }
 
 export type JoinResult =
@@ -52,7 +53,7 @@ export type JoinResult =
 
 /**
  * Adds a participant to the open group behind an invite code. Names are unique within a
- * group, ignoring the case of ASCII letters, so "Lea" and "lea" cannot both join.
+ * group, ignoring the case of ASCII letters (SQLite NOCASE), so "Lea" and "lea" cannot both join.
  */
 export async function joinGroup(db: D1Database, inviteCode: string, name: string): Promise<JoinResult> {
   const token = newToken();
@@ -68,7 +69,8 @@ export async function joinGroup(db: D1Database, inviteCode: string, name: string
       .run();
     if (inserted.meta.changes === 1) return { ok: true, token, me: (await findMe(db, token))! };
   } catch (error) {
-    // Two people sending the same name at the same moment: the UNIQUE constraint catches the second.
+    // Two people sending the same name at the same moment: the unique index on
+    // (group_id, name COLLATE NOCASE) catches the second.
     if (!String(error).includes("UNIQUE")) throw error;
     return { ok: false, reason: "taken" };
   }
@@ -78,13 +80,16 @@ export async function joinGroup(db: D1Database, inviteCode: string, name: string
   return { ok: false, reason: invite.group.phase === "open" ? "taken" : "closed" };
 }
 
-interface MeRow {
+interface GroupRow {
   group_id: string;
   group_name: string;
   budget_cents: number;
   exchange_date: string;
   phase: GroupPhase;
   invite_code: string;
+}
+
+interface MeRow extends GroupRow {
   participant_id: string;
   participant_name: string;
   is_organizer: number;
@@ -112,16 +117,20 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
   );
 }
 
+function toGroupView(row: GroupRow): GroupView {
+  return {
+    id: row.group_id,
+    name: row.group_name,
+    budgetCents: row.budget_cents,
+    exchangeDate: row.exchange_date,
+    phase: row.phase,
+    inviteCode: row.invite_code,
+  };
+}
+
 function toMe(row: MeRow, participants: ParticipantView[]): Me {
   return {
-    group: {
-      id: row.group_id,
-      name: row.group_name,
-      budgetCents: row.budget_cents,
-      exchangeDate: row.exchange_date,
-      phase: row.phase,
-      inviteCode: row.invite_code,
-    },
+    group: toGroupView(row),
     participant: { id: row.participant_id, name: row.participant_name, isOrganizer: row.is_organizer === 1 },
     participants,
   };

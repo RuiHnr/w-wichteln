@@ -1,9 +1,9 @@
-import type { CreateGroupResponse, InviteResponse } from "../../shared/api";
+import type { InviteResponse, JoinGroupResponse } from "../../shared/api";
 import { MAX_PARTICIPANT_NAME_LENGTH, validateParticipantName } from "../../shared/group-input";
 import { joinGroup } from "../api";
 import { escapeHtml, showMessage, showView } from "../html";
 import { joinNameErrorMessage } from "../messages";
-import { groupFacts, phaseLabel } from "./group-page";
+import { groupFacts, phaseLabel } from "./group-facts";
 
 function markup({ group }: InviteResponse): string {
   return `
@@ -43,7 +43,7 @@ export function renderJoinGroup(
   main: HTMLElement,
   inviteCode: string,
   invite: InviteResponse,
-  onJoined: (joined: CreateGroupResponse) => void,
+  onJoined: (joined: JoinGroupResponse) => void,
 ): void {
   showView(main, markup(invite));
   const form = main.querySelector<HTMLFormElement>("form")!;

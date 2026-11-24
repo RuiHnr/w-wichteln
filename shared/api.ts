@@ -44,7 +44,13 @@ export interface ValidationErrorResponse {
   errors: GroupInputErrors;
 }
 
+/** 201 from POST /api/invites/:code/participants: same shape as creating a group. */
+export type JoinGroupResponse = CreateGroupResponse;
+
+/** Why a name cannot be used to join: invalid (400) or already in the group (409). */
+export type JoinNameError = ParticipantNameError | "taken";
+
 /** 400 or 409 from POST /api/invites/:code/participants when the name cannot be used. */
 export interface JoinErrorResponse {
-  errors: { name: ParticipantNameError | "taken" };
+  errors: { name: JoinNameError };
 }

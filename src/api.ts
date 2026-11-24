@@ -1,4 +1,12 @@
-import type { CreateGroupResponse, InviteResponse, JoinErrorResponse, Me, ValidationErrorResponse } from "../shared/api";
+import type {
+  CreateGroupResponse,
+  InviteResponse,
+  JoinErrorResponse,
+  JoinGroupResponse,
+  JoinNameError,
+  Me,
+  ValidationErrorResponse,
+} from "../shared/api";
 import type { GroupInputErrors, RawGroupInput } from "../shared/group-input";
 
 export type CreateGroupResult = { ok: true; created: CreateGroupResponse } | { ok: false; errors: GroupInputErrors };
@@ -35,8 +43,8 @@ export async function fetchInvite(inviteCode: string): Promise<InviteResponse | 
 }
 
 export type JoinGroupResult =
-  | { ok: true; joined: CreateGroupResponse }
-  | { ok: false; nameError: JoinErrorResponse["errors"]["name"] }
+  | { ok: true; joined: JoinGroupResponse }
+  | { ok: false; nameError: JoinNameError }
   | { ok: false; closed: true };
 
 /** Throws when the server cannot be reached, fails or the invite code is unknown. */
@@ -51,5 +59,5 @@ export async function joinGroup(inviteCode: string, name: string): Promise<JoinG
     return body.errors ? { ok: false, nameError: body.errors.name } : { ok: false, closed: true };
   }
   if (!response.ok) throw new Error(`POST /api/invites/participants answered ${response.status}`);
-  return { ok: true, joined: (await response.json()) as CreateGroupResponse };
+  return { ok: true, joined: (await response.json()) as JoinGroupResponse };
 }
