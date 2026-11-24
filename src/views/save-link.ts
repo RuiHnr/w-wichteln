@@ -59,6 +59,8 @@ export function renderSaveLink(main: HTMLElement, groupName: string, token: stri
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    // Enter in the link field submits the form too; only the button means "continue"
+    if (event.submitter?.getAttribute("type") !== "submit") return;
     if (saved.checked) return onSaved();
     error.textContent = "Speicher zuerst deinen Link und setz dann den Haken.";
     saved.setAttribute("aria-invalid", "true");
@@ -85,15 +87,15 @@ export function wireLinkNotice(main: HTMLElement, onDismiss: () => void): void {
   if (!notice) return;
 
   notice.querySelector("[data-link-notice-show]")!.addEventListener("click", () => {
-    const link = main.querySelector<HTMLInputElement>("#personal-link")!;
-    link.focus();
-    link.select();
+    const link = main.querySelector<HTMLInputElement>("#personal-link");
+    link?.focus();
+    link?.select();
   });
 
   notice.querySelector("[data-link-notice-dismiss]")!.addEventListener("click", () => {
-    onDismiss();
     notice.remove();
     // the pressed button is gone: keep the focus at the top of the page instead of losing it
     main.querySelector<HTMLElement>("h1")?.focus();
+    onDismiss();
   });
 }
