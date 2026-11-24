@@ -288,7 +288,8 @@ async function writeDraw(db: D1Database, tokenHash: string, groupId: string, ass
  * full list (ADR 0003), this is also how any mistake after the draw is fixed.
  *
  * One transaction: the group is reopened only while drawn and the caller an organizer,
- * and then its rows go, since an open group has no assignments.
+ * and then its rows go, since an open group has no assignments. Its swap requests go too:
+ * open ones expire, and with the completed swaps gone every Swap Limit count is back at 0.
  */
 export async function resetGroup(db: D1Database, token: string, groupId: string): Promise<ManageResult> {
   const [reopened] = await db.batch([
@@ -297,6 +298,9 @@ export async function resetGroup(db: D1Database, token: string, groupId: string)
       .bind(groupId, await hashToken(token), groupId),
     db
       .prepare(DROP_ASSIGNMENTS_IF_OPEN)
+      .bind(groupId, groupId),
+    db
+      .prepare("DELETE FROM swap_requests WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'")
       .bind(groupId, groupId),
   ]);
   if (reopened.results.length === 1) return changed(db, token);
