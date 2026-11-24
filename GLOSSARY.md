@@ -48,9 +48,29 @@ The shared link through which anyone can join a group while it is open.
 _UI_: Einladungslink
 
 **Personal Link**:
-A link unique to one participant that restores their identity on any device.
+A link unique to one participant that restores their identity on any device. Without it, a participant cannot return to the group from another device or after their browser data is cleared.
 _UI_: Persönlicher Link
 _Avoid_: Login link, magic link
+
+**Link Renewal**:
+An organizer's act of creating a new Personal Link for a participant, which makes the old one stop working. Every participant can see who renewed whose link and when.
+_UI_: Neuen persönlichen Link erstellen
+_Avoid_: Reset link, recover link, show link
+
+**Group Deletion**:
+An organizer's act of deleting a group with everything in it immediately, with the same result as its Expiry.
+_UI_: Gruppe löschen
+_Avoid_: Archive, close, Reset
+
+**Group Picture**:
+An optional photo for a group, set, changed or removed by any organizer.
+_UI_: Gruppenbild
+_Avoid_: Cover, banner, logo
+
+**Participant Picture**:
+An optional photo a participant sets, changes or removes for themselves; without one, their initials stand in.
+_UI_: Profilbild
+_Avoid_: Avatar, user picture
 
 **Open**:
 The phase of a group in which people can join and exclusions can be set.
