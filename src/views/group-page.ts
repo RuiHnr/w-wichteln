@@ -1,12 +1,15 @@
 import type { Me } from "../../shared/api";
+import { copyText } from "../clipboard";
 import { escapeHtml, showMessage, showView } from "../html";
+import { createIdentityStore } from "../identity";
 import { inviteLink, personalLink } from "../links";
+import { linkRenewalNote } from "../messages";
 import type { RevealState } from "../reveal";
 import { createRevealStore, initialRevealState, prefersReducedMotion } from "../reveal";
 import { drawPanel, resetPanel } from "./draw-panel";
 import { wireGiftReveal } from "./gift-reveal";
 import { groupFacts, phaseLabel } from "./group-facts";
-import type { AfterAction } from "./page-actions";
+import type { AfterAction, Rerender } from "./page-actions";
 import { exclusionsPanel, participantActions, settingsPanel, swapLimitPanel, wireManage } from "./manage-group";
 import { swapPanel, wireSwaps } from "./swap-panel";
 import { wireWishlist, wishlistPanel } from "./wishlist-panel";
@@ -17,7 +20,11 @@ function participantList(me: Me): string {
       const you = p.id === me.participant.id ? ` <span class="people__tag">du</span>` : "";
       const organizer = p.isOrganizer ? ` <span class="people__tag">Organisator</span>` : "";
       const actions = me.participant.isOrganizer ? participantActions(me, p) : "";
-      return `<li class="people__item"><span class="people__name">${escapeHtml(p.name)}${you}${organizer}</span>${actions}</li>`;
+      // Everyone sees who renewed whose link and when (ADR 0004).
+      const renewal = p.linkRenewal
+        ? `<span class="people__note">${escapeHtml(linkRenewalNote(p.linkRenewal, me.participant.name))}</span>`
+        : "";
+      return `<li class="people__item"><span class="people__name">${escapeHtml(p.name)}${you}${organizer}${renewal}</span>${actions}</li>`;
     })
     .join("");
   return `
@@ -83,16 +90,6 @@ function markup(me: Me, token: string, reveal: RevealState, rerender: boolean): 
     </section>`;
 }
 
-async function copyText(input: HTMLInputElement): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(input.value);
-    return true;
-  } catch {
-    input.select();
-    return document.execCommand("copy");
-  }
-}
-
 /**
  * Shows the group page. After an organizer action, `after` says what happened (announced
  * in the status line next to the control) and which control keeps the focus.
@@ -107,7 +104,11 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
   // after an organizer action the page is re-rendered in place, so it does not enter again
   showView(main, markup(me, token, reveal, after !== undefined));
   if (after) restoreFocus(main, after);
-  const rerender = (fresh: Me, next: AfterAction) => renderGroupPage(main, fresh, token, next);
+  const rerender: Rerender = (fresh, next, nextToken = token) => {
+    // After organizers renewed their own link, this device goes on with the new token.
+    if (nextToken !== token) createIdentityStore(localStorage).remember(fresh.group.id, nextToken);
+    renderGroupPage(main, fresh, nextToken, next);
+  };
   if (recipient) wireGiftReveal(main, () => reveals.rememberUnwrapped(group.id, recipient.id));
   wireWishlist(main, token, rerender, () => renderNotRecognised(main));
   wireSwaps(main, me, token, rerender, () => renderNotRecognised(main));

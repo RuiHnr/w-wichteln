@@ -306,6 +306,13 @@ html {
   min-width: 0;
 }
 
+/* Link Renewal trace (ADR 0004): a quiet line under the name, seen by everyone */
+.people__note {
+  flex-basis: 100%;
+  color: var(--p-muted);
+  font-size: var(--text-sm);
+}
+
 .people__actions {
   display: flex;
   flex-wrap: wrap;
@@ -497,6 +504,11 @@ html {
   border-radius: var(--radius-lg);
   background: var(--p-surface-raised);
   color: var(--p-ink);
+}
+
+/* A dialog that hands something over rather than warns */
+.dialog--calm {
+  border-color: var(--p-line);
 }
 
 .dialog:not([open]) {

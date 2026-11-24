@@ -118,12 +118,18 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
     .first<MeRow>();
   if (!row) return null;
   const { results } = await db
-    .prepare("SELECT id, name, is_organizer FROM participants WHERE group_id = ? ORDER BY created_at, rowid")
+    .prepare(
+      "SELECT id, name, is_organizer, link_renewed_by, link_renewed_at FROM participants WHERE group_id = ? ORDER BY created_at, rowid",
+    )
     .bind(row.group_id)
-    .all<{ id: string; name: string; is_organizer: number }>();
+    .all<{ id: string; name: string; is_organizer: number; link_renewed_by: string | null; link_renewed_at: string | null }>();
   const me = toMe(
     row,
-    results.map((p) => ({ id: p.id, name: p.name, isOrganizer: p.is_organizer === 1 })),
+    results.map((p) => {
+      const view: ParticipantView = { id: p.id, name: p.name, isOrganizer: p.is_organizer === 1 };
+      if (p.link_renewed_by !== null && p.link_renewed_at !== null) view.linkRenewal = { by: p.link_renewed_by, at: p.link_renewed_at };
+      return view;
+    }),
   );
   if (row.phase === "drawn") {
     const recipient = await findRecipient(db, row.participant_id);

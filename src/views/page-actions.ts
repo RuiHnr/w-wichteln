@@ -12,8 +12,8 @@ export interface AfterAction {
   fallback?: string;
 }
 
-/** How the group page shows the caller's fresh view after an action. */
-export type Rerender = (me: Me, after: AfterAction) => void;
+/** How the group page shows the caller's fresh view after an action; with `token` when this device's token changed. */
+export type Rerender = (me: Me, after: AfterAction, token?: string) => void;
 
 /**
  * With `data-confirm`, the first press arms the button and says so in `status`; only a second

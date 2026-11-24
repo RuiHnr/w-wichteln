@@ -7,11 +7,12 @@ import { escapeHtml } from "../html";
 import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErrorMessages, NETWORK_ERROR } from "../messages";
 import { localToday } from "../today";
 import type { Rerender } from "./page-actions";
+import { renewLinkButton, wireLinkRenewal } from "./link-renewal";
 import { onConfirmedClick } from "./page-actions";
 
 /**
  * The organizer's controls on the group page: the draw and its reset, budget and date, per participant
- * the Organizer role and removal, and the exclusions. Only wired up for organizers; the API
+ * the Organizer role, removal and Link Renewal, and the exclusions. Only wired up for organizers; the API
  * enforces the same rules.
  */
 
@@ -149,6 +150,7 @@ export function participantActions(me: Me, p: ParticipantView): string {
   if (me.group.phase === "open" && !isSelf) {
     buttons.push(actionButton("remove", p, "Entfernen", `${name} aus der Gruppe entfernen`, "Wirklich entfernen?"));
   }
+  buttons.push(renewLinkButton(me, p));
   return buttons.length ? `<div class="people__actions">${buttons.join("")}</div>` : "";
 }
 
@@ -236,6 +238,7 @@ export function wireManage(
   }
 
   wireReset();
+  wireLinkRenewal(main, me, token, rerender, onUnrecognised);
   wireExclusions();
   wireSwapLimit();
 
