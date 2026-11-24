@@ -175,6 +175,17 @@ export async function resetGroup(token: string, groupId: string): Promise<Organi
   return readAction<ManageError>(response, "DELETE /api/groups/draw");
 }
 
+/**
+ * Group Deletion: the group is gone with everything in it, or the server says why not
+ * (401 unknown_token, 403 not_organizer). Throws when the server cannot be reached or fails.
+ */
+export async function deleteGroup(token: string, groupId: string): Promise<{ ok: true } | { ok: false; error: ManageError }> {
+  const response = await sendWithToken(token, "DELETE", `/api/groups/${encodeURIComponent(groupId)}`);
+  if (response.status === 401 || response.status === 403) return { ok: false, error: ((await response.json()) as { error: ManageError }).error };
+  if (!response.ok) throw new Error(`DELETE /api/groups answered ${response.status}`);
+  return { ok: true };
+}
+
 export type SaveWishlistResult =
   | { ok: true; me: Me }
   | { ok: false; errors: { wishlist: WishlistError } }

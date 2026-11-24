@@ -103,6 +103,10 @@ async function showPersonal(token: string): Promise<void> {
     const me = await fetchMe(token);
     if (!me) {
       history.replaceState(null, "", "/");
+      // This device may know the token's group: if that group is gone, say so instead.
+      const groupId = identity.groupWith(token);
+      if (groupId) identity.forget(groupId);
+      if (groupId && (await groupStillExists(groupId)) === false) return renderGroupGone(main);
       return showMessage(main, "Dieser persönliche Link gilt nicht", "Prüf, ob du ihn vollständig kopiert hast. Gruppen werden 60 Tage nach der Bescherung gelöscht.", {
         href: "/",
         label: "Neue Gruppe anlegen",

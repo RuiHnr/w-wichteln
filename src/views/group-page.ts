@@ -1,8 +1,10 @@
 import type { Me } from "../../shared/api";
 import { escapeHtml, showMessage, showView } from "../html";
+import { createIdentityStore } from "../identity";
 import { inviteLink, personalLink } from "../links";
 import type { RevealState } from "../reveal";
 import { createRevealStore, initialRevealState, prefersReducedMotion } from "../reveal";
+import { deleteGroupPanel, wireDeleteGroup } from "./delete-group";
 import { drawPanel, resetPanel } from "./draw-panel";
 import { wireGiftReveal } from "./gift-reveal";
 import { groupFacts, phaseLabel } from "./group-facts";
@@ -65,6 +67,8 @@ function markup(me: Me, token: string, reveal: RevealState, rerender: boolean): 
 
       ${participant.isOrganizer ? swapLimitPanel(me) : ""}
 
+      ${participant.isOrganizer ? deleteGroupPanel(me) : ""}
+
       ${group.phase === "open" ? `
       <section class="panel stack" aria-labelledby="invite-link-heading">
         <h2 class="panel__title" id="invite-link-heading">Einladungslink</h2>
@@ -111,7 +115,15 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
   if (recipient) wireGiftReveal(main, () => reveals.rememberUnwrapped(group.id, recipient.id));
   wireWishlist(main, token, rerender, () => renderNotRecognised(main));
   wireSwaps(main, me, token, rerender, () => renderNotRecognised(main));
-  if (me.participant.isOrganizer) wireManage(main, me, token, rerender, () => renderNotRecognised(main));
+  if (me.participant.isOrganizer) {
+    wireManage(main, me, token, rerender, () => renderNotRecognised(main));
+    // The deleting organizer lands where every link of the group now leads.
+    const onDeleted = () => {
+      createIdentityStore(localStorage).forget(group.id);
+      renderGroupGone(main);
+    };
+    wireDeleteGroup(main, me, token, rerender, () => renderNotRecognised(main), onDeleted);
+  }
   const status = main.querySelector<HTMLElement>("[data-copy-status]")!;
 
   for (const button of main.querySelectorAll<HTMLButtonElement>("[data-copy]")) {
@@ -140,12 +152,12 @@ function restoreFocus(main: HTMLElement, after: AfterAction): void {
   setTimeout(() => (status.textContent = after.status), 50);
 }
 
-/** Shown for a link to a group that was deleted (60 days after its date) or never existed. */
+/** Shown for a link to a group that was deleted (by an organizer, or 60 days after its date) or never existed. */
 export function renderGroupGone(main: HTMLElement): void {
   showMessage(
     main,
     "Diese Gruppe gibt es nicht mehr",
-    "Gruppen werden 60 Tage nach der Bescherung gelöscht, mit allem, was dazugehört. Falls du die Gruppe noch brauchst, prüf, ob der Link vollständig ist.",
+    "Ein Organisator hat sie gelöscht, oder sie ist 60 Tage nach der Bescherung abgelaufen, mit allem, was dazugehört. Falls du die Gruppe noch brauchst, prüf, ob der Link vollständig ist.",
     { href: "/", label: "Neue Gruppe anlegen" },
   );
 }
