@@ -2,6 +2,7 @@ import type { RecipientView } from "../../shared/api";
 import { escapeHtml } from "../html";
 import type { RevealState } from "../reveal";
 import { recipientWishlist } from "./wishlist-panel";
+import { prefersReducedMotion } from "../reveal";
 
 /**
  * The gift reveal on the group page: a wrapped gift waits for a tap; it unties its bow,
@@ -12,7 +13,7 @@ import { recipientWishlist } from "./wishlist-panel";
 
 const CONFETTI_PIECES = 36;
 const CONFETTI_COLOURS = ["var(--p-accent)", "var(--p-accent-soft)", "var(--p-gift)", "var(--p-pine)", "var(--p-ink)"];
-/** Longer than the whole CSS sequence: ends the reveal even if no animationend arrives. */
+/** Longer than the whole CSS sequence in app.css (name-in ends at 1520ms): ends the reveal even if no animationend arrives. */
 const FALLBACK_MS = 2400;
 
 const giftArt = `
@@ -44,11 +45,11 @@ export function giftRevealPanel(recipient: RecipientView, state: RevealState): s
       <h2 class="draw__label" id="draw-heading" tabindex="-1" data-focus="draw">Du beschenkst</h2>
       <div class="reveal__stage">
         <button class="gift" type="button" data-gift aria-label="Geschenk auspacken">${giftArt}</button>
-        <p class="draw__name reveal__name" tabindex="-1" data-reveal-name>${escapeHtml(recipient.name)}</p>
+        <p class="draw__name reveal__name" tabindex="-1" data-reveal-name><span class="visually-hidden">Du beschenkst </span>${escapeHtml(recipient.name)}</p>
         <div class="confetti" aria-hidden="true" data-confetti></div>
       </div>
       <div class="reveal__foot">
-        <p class="panel__text reveal__hint">Tipp auf das Geschenk, dann siehst du den Namen.</p>
+        <p class="panel__text reveal__hint">Öffne das Geschenk, dann siehst du den Namen.</p>
         <button class="btn btn--secondary reveal__replay" type="button" data-replay>Nochmal auspacken</button>
       </div>
       <div class="reveal__wishlist">${recipientWishlist(recipient)}</div>
@@ -66,24 +67,27 @@ export function wireGiftReveal(root: HTMLElement, onUnwrapped: () => void): void
   const confetti = panel.querySelector<HTMLElement>("[data-confetti]")!;
   const replay = panel.querySelector<HTMLButtonElement>("[data-replay]")!;
   const setState = (state: RevealState | "opening") => (panel.dataset.reveal = state);
+  let fallback: ReturnType<typeof setTimeout> | undefined;
 
+  // The confetti is left to finish falling on its own; its pieces end transparent.
   const finish = () => {
-    if (panel.dataset.reveal !== "opening") return;
+    clearTimeout(fallback);
+    // a re-render may have replaced this panel meanwhile; leave the focus where it is then
+    if (panel.dataset.reveal !== "opening" || !panel.isConnected) return;
     setState("shown");
-    confetti.replaceChildren();
     name.focus();
     onUnwrapped();
   };
 
   gift.addEventListener("click", () => {
     if (panel.dataset.reveal !== "wrapped") return;
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (prefersReducedMotion()) {
       setState("opening");
       return finish();
     }
     burstConfetti(confetti);
     setState("opening");
-    setTimeout(finish, FALLBACK_MS);
+    fallback = setTimeout(finish, FALLBACK_MS);
   });
   name.addEventListener("animationend", (event) => {
     if (event.target === name) finish();

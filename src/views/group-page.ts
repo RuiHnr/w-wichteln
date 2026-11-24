@@ -2,7 +2,7 @@ import type { Me } from "../../shared/api";
 import { escapeHtml, showMessage, showView } from "../html";
 import { inviteLink, personalLink } from "../links";
 import type { RevealState } from "../reveal";
-import { createRevealStore, initialRevealState } from "../reveal";
+import { createRevealStore, initialRevealState, prefersReducedMotion } from "../reveal";
 import { drawPanel, resetPanel } from "./draw-panel";
 import { wireGiftReveal } from "./gift-reveal";
 import { groupFacts, phaseLabel } from "./group-facts";
@@ -54,7 +54,7 @@ function markup(me: Me, token: string, reveal: RevealState, rerender: boolean): 
 
       ${participantList(me)}
 
-      ${group.phase === "open" ? drawPanel(me) : participant.isOrganizer ? resetPanel() : ""}
+      ${group.phase === "open" ? drawPanel(me, reveal) : participant.isOrganizer ? resetPanel() : ""}
 
       ${participant.isOrganizer ? exclusionsPanel(me) : ""}
 
@@ -97,7 +97,7 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
   const { group, recipient } = me;
   const reveal = initialRevealState({
     unwrappedBefore: recipient ? reveals.hasUnwrapped(group.id, recipient.id) : true,
-    reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+    reducedMotion: prefersReducedMotion(),
   });
   // after an organizer action the page is re-rendered in place, so it does not enter again
   showView(main, markup(me, token, reveal, after !== undefined));

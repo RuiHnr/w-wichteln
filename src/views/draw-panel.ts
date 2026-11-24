@@ -9,7 +9,7 @@ import { giftRevealPanel } from "./gift-reveal";
  * to wait; after it, each participant unwraps whom they give to, and only that (ADR 0003).
  * `reveal` says whether the gift still waits wrapped or the name shows straight away.
  */
-export function drawPanel(me: Me, reveal: RevealState = "shown"): string {
+export function drawPanel(me: Me, reveal: RevealState): string {
   if (me.group.phase === "drawn") return me.recipient ? giftRevealPanel(me.recipient, reveal) : "";
   return `
     <section class="panel stack" aria-labelledby="draw-heading">

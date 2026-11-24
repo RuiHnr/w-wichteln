@@ -570,7 +570,9 @@ html {
 }
 
 /*
- * Gift reveal. States on .reveal[data-reveal]: wrapped → opening → shown.
+ * Gift reveal. The sequence's delays and durations are its own choreography (bow, lid,
+ * confetti, box, name) rather than the --m-* tokens; FALLBACK_MS in gift-reveal.ts outlasts it.
+ * States on .reveal[data-reveal]: wrapped → opening → shown.
  * Gift, name and confetti share one grid cell; hint and replay share another,
  * so the panel keeps its size in every state. Only transform and opacity animate.
  */
@@ -632,12 +634,7 @@ html {
   transition: transform var(--m-out) var(--ease);
 }
 
-.gift__lid,
-.gift__bow {
-  transform-origin: 50% 100%;
-}
-
-.gift__box {
+.gift__art g {
   transform-origin: 50% 100%;
 }
 
@@ -698,6 +695,7 @@ html {
 }
 
 .confetti {
+  position: relative;
   align-self: start;
   margin-top: 2.5rem;
   width: 0;
@@ -777,6 +775,11 @@ html {
   .view,
   .reveal .gift__art {
     animation: none;
+  }
+
+  .app-header__name:active,
+  .reveal[data-reveal="wrapped"] .gift:active .gift__art {
+    transform: none;
   }
 
   .reveal__replay,
