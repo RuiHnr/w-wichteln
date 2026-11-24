@@ -1,0 +1,37 @@
+{
+  "name": "w-wichteln",
+  "version": "1.0.0",
+  "description": "Secret Santa app for groups of friends",
+  "scripts": {
+    "dev": "npm run db:migrate:local && vite build && concurrently -k -n build,pages -c yellow,blue \"vite build --watch\" \"wrangler pages dev dist --live-reload\"",
+    "build": "vite build",
+    "typecheck": "tsc -p . && tsc -p functions",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate:local": "wrangler d1 migrations apply w-wichteln --local < /dev/null",
+    "db:migrate:remote": "wrangler d1 migrations apply w-wichteln --remote"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RuiHnr/w-wichteln.git"
+  },
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/RuiHnr/w-wichteln/issues"
+  },
+  "homepage": "https://github.com/RuiHnr/w-wichteln#readme",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261124.1",
+    "concurrently": "^10.0.7",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1",
+    "wrangler": "^4.167.0"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/figtree": "^5.3.0"
+  },
+  "private": true,
+  "license": "UNLICENSED"
+}

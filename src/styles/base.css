@@ -1,0 +1,206 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background:
+    radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--p-accent) 12%, transparent), transparent 60%),
+    linear-gradient(180deg, var(--p-bg) 0%, var(--p-bg-deep) 100%) fixed;
+  color: var(--p-ink);
+  font-family: var(--font-text);
+  font-size: var(--text-base);
+  line-height: var(--leading-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+  line-height: var(--leading-tight);
+  margin: 0;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* Focus: always visible for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--p-accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+main:focus {
+  outline: none;
+}
+
+.skip-link {
+  position: fixed;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 100;
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--p-action);
+  color: var(--p-action-ink);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+/* Snowfall sits under everything */
+.snowfall {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* App shell */
+.app {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* One content column: header and main share the same left and right edges */
+.wrap {
+  width: 100%;
+  max-width: calc(var(--content-max) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.app-header {
+  border-bottom: 1px solid var(--p-line);
+}
+
+.app-header__inner {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+}
+
+.app-header__name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-lg);
+  letter-spacing: -0.01em;
+  color: var(--p-accent);
+  text-shadow: var(--glow-soft);
+}
+
+.app-main {
+  flex: 1;
+  padding-block: var(--space-8);
+}
+
+.shell-intro {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.shell-intro__title {
+  font-size: var(--text-display);
+  text-shadow: var(--glow-soft);
+}
+
+.shell-intro__lead {
+  font-size: var(--text-lg);
+  color: var(--p-muted);
+  max-width: 34ch;
+}
+
+/* Buttons: hover steps 1px up and 14% toward the ink, press sinks 1px and scales .985 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: 0 var(--space-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font: 600 var(--text-base) / 1 var(--font-text);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform var(--m-out) var(--ease),
+    background-color var(--m-out) var(--ease),
+    border-color var(--m-out) var(--ease),
+    box-shadow var(--m-out) var(--ease);
+}
+
+.btn--primary {
+  background: var(--p-action);
+  color: var(--p-action-ink);
+  box-shadow: var(--glow-soft);
+}
+
+.btn--secondary {
+  background: transparent;
+  color: var(--p-ink);
+  border-color: var(--p-line);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-1px);
+    transition-duration: var(--m-in);
+  }
+
+  .btn--primary:hover {
+    background: color-mix(in srgb, var(--p-action) 86%, var(--p-ink));
+    box-shadow: var(--glow-strong);
+  }
+
+  .btn--secondary:hover {
+    background: color-mix(in srgb, var(--p-ink) 6%, transparent);
+    border-color: color-mix(in srgb, var(--p-ink) 32%, transparent);
+  }
+}
+
+.btn:active {
+  transform: translateY(1px) scale(0.985);
+  transition-duration: var(--m-press);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .btn:hover,
+  .btn:active {
+    transform: none;
+  }
+}
