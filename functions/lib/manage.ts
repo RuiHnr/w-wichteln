@@ -202,6 +202,9 @@ export async function removeExclusion(
   return { ok: false, reason: caller.me.group.phase !== "open" ? "drawn" : "not_organizer" };
 }
 
+/** SQL: the number of participants of the `groups` row in scope. */
+const PARTICIPANT_COUNT = "(SELECT COUNT(*) FROM participants p WHERE p.group_id = groups.id)";
+
 /** How often the draw is retried when the group changed while it was being drawn. */
 const DRAW_ATTEMPTS = 3;
 
@@ -231,8 +234,8 @@ export async function drawGroup(db: D1Database, token: string, groupId: string):
 
     if (await writeDraw(db, tokenHash, groupId, assignments)) return changed(db, token);
   }
-  // The group kept changing under us; report it as a lost right so the UI reloads.
-  return { ok: false, reason: "not_organizer" };
+  // Someone kept joining, leaving or changing exclusions while we drew.
+  return { ok: false, reason: "changed" };
 }
 
 /**
@@ -240,14 +243,16 @@ export async function drawGroup(db: D1Database, token: string, groupId: string):
  * re-checks against the stored group; true when the group is now Drawn with them.
  */
 async function writeDraw(db: D1Database, tokenHash: string, groupId: string, assignments: Assignments): Promise<boolean> {
-  const participantCount = "(SELECT COUNT(*) FROM participants p WHERE p.group_id = groups.id)";
   const statements = [
     db
       .prepare(
         `INSERT INTO assignments (giver_id, recipient_id, group_id)
-         SELECT json_extract(drawn.value, '$[0]'), json_extract(drawn.value, '$[1]'), g.id
+         SELECT json_extract(drawn.value, '$[0]') AS giver, json_extract(drawn.value, '$[1]') AS recipient, g.id
            FROM groups g, json_each(?) drawn
-          WHERE g.id = ? AND g.phase = 'open' AND ${CALLER_IS_ORGANIZER}`,
+          WHERE g.id = ? AND g.phase = 'open' AND ${CALLER_IS_ORGANIZER}
+            -- Someone removed meanwhile gets no row (rather than a foreign key error); the UPDATE then sees too few.
+            AND giver IN (SELECT id FROM participants p WHERE p.group_id = g.id)
+            AND recipient IN (SELECT id FROM participants p WHERE p.group_id = g.id)`,
       )
       .bind(JSON.stringify([...assignments]), groupId, tokenHash, groupId),
     // Drawn only if the rows cover exactly the current participants and break no current exclusion.
@@ -255,12 +260,8 @@ async function writeDraw(db: D1Database, tokenHash: string, groupId: string, ass
       .prepare(
         `UPDATE groups SET phase = 'drawn'
           WHERE id = ? AND phase = 'open'
-            AND ${participantCount} >= ${MIN_PARTICIPANTS_TO_DRAW}
-            AND ${participantCount} = (SELECT COUNT(*) FROM assignments a WHERE a.group_id = groups.id)
-            AND ${participantCount} = (SELECT COUNT(*) FROM assignments a
-                  JOIN participants giver ON giver.id = a.giver_id AND giver.group_id = groups.id
-                  JOIN participants recipient ON recipient.id = a.recipient_id AND recipient.group_id = groups.id
-                 WHERE a.group_id = groups.id)
+            AND ${PARTICIPANT_COUNT} >= ${MIN_PARTICIPANTS_TO_DRAW}
+            AND ${PARTICIPANT_COUNT} = (SELECT COUNT(*) FROM assignments a WHERE a.group_id = groups.id)
             AND NOT EXISTS (SELECT 1 FROM assignments a JOIN exclusions e
                   ON (e.participant_a = a.giver_id AND e.participant_b = a.recipient_id)
                   OR (e.participant_b = a.giver_id AND e.participant_a = a.recipient_id)
@@ -273,14 +274,8 @@ async function writeDraw(db: D1Database, tokenHash: string, groupId: string, ass
       .prepare("DELETE FROM assignments WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'")
       .bind(groupId, groupId),
   ];
-  try {
-    const [, drawn] = await db.batch(statements);
-    return drawn.results.length === 1;
-  } catch (error) {
-    // A participant was removed meanwhile: their row breaks a foreign key and the whole batch is undone.
-    if (String(error).includes("FOREIGN KEY")) return false;
-    throw error;
-  }
+  const [, drawn] = await db.batch(statements);
+  return drawn.results.length === 1;
 }
 
 const statusOf: Record<ManageError, number> = {
@@ -293,6 +288,7 @@ const statusOf: Record<ManageError, number> = {
   self: 409,
   too_few: 409,
   impossible: 409,
+  changed: 409,
 };
 
 /** The error body and status the API answers a refused management action with. */

@@ -12,7 +12,7 @@ describe("drawAssignments", () => {
     }
   });
 
-  it("never pairs two participants with an exclusion, in either direction", () => {
+  it("never assigns between two participants with an exclusion, in either direction", () => {
     const ids = ["a", "b", "c", "d"];
     // Only a→c→b→d→a and its reverse avoid both a↔b and c↔d.
     const exclusions: [string, string][] = [["a", "b"], ["c", "d"]];
@@ -75,5 +75,21 @@ describe("drawAssignments", () => {
     }
     expect([...counts.keys()].sort()).toEqual(["c", "d"]);
     for (const count of counts.values()) expect(count).toBeGreaterThan(800);
+  });
+
+  it("still varies the draw when random tries almost never hit a valid one", () => {
+    // 12 in a ring, each excluded from all but their two neighbours. Only 4 of the 12! draws
+    // are valid: the ring in either direction, or neighbours paired off in one of two ways.
+    const ids = Array.from({ length: 12 }, (_, i) => `p${String(i).padStart(2, "0")}`);
+    const exclusions: [string, string][] = [];
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) if (j - i !== 1 && j - i !== ids.length - 1) exclusions.push([ids[i], ids[j]]);
+    }
+    const outcomes = new Set<string>();
+    for (let run = 0; run < 200; run++) {
+      const assignments = drawAssignments(ids, exclusions)!;
+      outcomes.add(ids.map((id) => assignments.get(id)).join(" "));
+    }
+    expect(outcomes.size).toBe(4);
   });
 });

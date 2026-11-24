@@ -1,6 +1,7 @@
 import type { Me } from "../../shared/api";
 import { MIN_PARTICIPANTS_TO_DRAW } from "../../shared/draw";
 import { escapeHtml } from "../html";
+import { manageErrorMessages } from "../messages";
 
 /**
  * The draw on the group page. Before it, organizers start it here and everyone else is told
@@ -20,7 +21,7 @@ function startDraw(me: Me): string {
   const missing = MIN_PARTICIPANTS_TO_DRAW - me.participants.length;
   if (missing > 0) {
     const more = missing === 1 ? "noch eine Person" : `noch ${missing} Personen`;
-    return `<p class="panel__text">Für die Auslosung braucht ihr mindestens ${MIN_PARTICIPANTS_TO_DRAW} Teilnehmer. Lade ${more} ein.</p>`;
+    return `<p class="panel__text">${manageErrorMessages.too_few} Lade ${more} ein.</p>`;
   }
   return `
       <p class="panel__text">Lose aus, sobald alle dabei sind. Danach kann niemand mehr beitreten. Jeder sieht nur, wen er selbst beschenkt, auch du.</p>

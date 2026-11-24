@@ -78,7 +78,8 @@ export type ManageError =
   | "last_organizer"
   | "self"
   | "too_few"
-  | "impossible";
+  | "impossible"
+  | "changed";
 
 /** 400 from PATCH /api/groups/:groupId: one error code per invalid field. */
 export interface SettingsErrorResponse {

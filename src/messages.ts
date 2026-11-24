@@ -48,6 +48,7 @@ export const manageErrorMessages: Record<ManageError, string> = {
   too_few: `Für die Auslosung braucht ihr mindestens ${MIN_PARTICIPANTS_TO_DRAW} Teilnehmer.`,
   impossible:
     "Mit diesen Ausschlüssen kann nicht jeder jemanden beschenken. Heb einen Ausschluss auf oder lade mehr Leute ein, dann klappt die Auslosung.",
+  changed: "Die Gruppe hat sich gerade geändert. Versuch es noch mal.",
 };
 
 /** What to tell an organizer whose exclusion form has the wrong input, in German. */

@@ -9,7 +9,7 @@ import { localToday } from "../today";
 
 /**
  * The organizer's controls on the group page: the draw, budget and date, per participant
- * the Organizer role and removal, and the exclusions. Only rendered for organizers; the API
+ * the Organizer role and removal, and the exclusions. Only wired up for organizers; the API
  * enforces the same rules.
  */
 

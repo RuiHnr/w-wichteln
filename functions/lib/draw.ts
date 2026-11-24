@@ -28,7 +28,8 @@ function shuffled<T>(items: Iterable<T>, random: Random): T[] {
  * It first tries plain random permutations, which picks uniformly among all valid draws.
  * When exclusions make those rare, it builds a draw giver by giver instead, in random
  * order, only keeping a choice if the rest can still be completed (a bipartite matching
- * check). That always finds a draw if one exists, in polynomial time.
+ * check). That always finds a draw if one exists, in polynomial time; every valid draw
+ * can come out, though not all equally often.
  */
 export function drawAssignments(
   participantIds: readonly string[],
