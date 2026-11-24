@@ -2,6 +2,8 @@ import type { ExclusionInputError, JoinNameError, ManageError } from "../shared/
 import { MIN_PARTICIPANTS_TO_DRAW } from "../shared/draw";
 import type { GroupField, GroupInputError } from "../shared/group-input";
 import { MAX_BUDGET_EUROS, MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH } from "../shared/group-input";
+import type { WishlistError } from "../shared/wishlist";
+import { MAX_WISHLIST_LENGTH } from "../shared/wishlist";
 
 const euros = new Intl.NumberFormat("de-DE").format(MAX_BUDGET_EUROS);
 
@@ -57,6 +59,24 @@ export const exclusionErrorMessages: Record<ExclusionInputError, string> = {
   same: "Wähl zwei verschiedene Teilnehmer.",
   invalid: "Wähl zwei Teilnehmer aus der Liste.",
 };
+
+/** What to tell someone when the server cannot be reached or fails, in German. */
+export const NETWORK_ERROR = "Das hat nicht geklappt. Prüf deine Verbindung und versuch es noch mal.";
+
+/** What to tell someone whose wishlist cannot be saved, in German. */
+export const wishlistErrorMessages: Record<WishlistError, string> = {
+  tooLong: `Dein Wunschzettel darf höchstens ${MAX_WISHLIST_LENGTH} Zeichen lang sein. Kürz ihn ein wenig.`,
+  invalid: "Dein Wunschzettel ließ sich nicht lesen. Lade die Seite neu und versuch es noch mal.",
+};
+
+/**
+ * How many characters are left in the wishlist field, counted as its maxlength counts them.
+ * The server trims first, so it never refuses what the field let through.
+ */
+export function wishlistLengthHint(text: string): string {
+  const left = Math.max(0, MAX_WISHLIST_LENGTH - text.length);
+  return left === 1 ? "Noch 1 Zeichen frei." : `Noch ${left} Zeichen frei.`;
+}
 
 /** 2000 → "20", 1250 → "12,50": the budget as the settings form shows it for editing. */
 export function budgetInputValue(cents: number): string {

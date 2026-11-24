@@ -200,7 +200,7 @@ describe("PATCH /api/groups/:groupId/participants/:participantId", () => {
     const granted = await setOrganizer(lea.token, lea.me.group.id, max.me.participant.id, true);
     expect(granted.status).toBe(200);
     const me = await granted.json<Me>();
-    expect(Object.keys(me).sort()).toEqual(["exclusions", "group", "participant", "participants", "recipient"]);
+    expect(Object.keys(me).sort()).toEqual(["exclusions", "group", "participant", "participants", "recipient", "wishlist"]);
     expect(me.recipient).toEqual(recipient);
 
     const revoked = await setOrganizer(lea.token, lea.me.group.id, max.me.participant.id, false);

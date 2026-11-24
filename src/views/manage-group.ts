@@ -4,7 +4,7 @@ import { validateGroupSettings } from "../../shared/group-input";
 import type { OrganizerActionResult } from "../api";
 import { addExclusion, drawGroup, fetchMe, removeExclusion, removeParticipant, resetGroup, setOrganizer, updateSettings } from "../api";
 import { escapeHtml } from "../html";
-import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErrorMessages } from "../messages";
+import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErrorMessages, NETWORK_ERROR } from "../messages";
 import { localToday } from "../today";
 
 /**
@@ -27,8 +27,6 @@ export interface AfterAction {
 export type Rerender = (me: Me, after: AfterAction) => void;
 
 const settingsFields: GroupSettingsField[] = ["budget", "exchangeDate"];
-
-const NETWORK_ERROR = "Das hat nicht geklappt. Prüf deine Verbindung und versuch es noch mal.";
 
 /** The panel to change budget and date. */
 export function settingsPanel({ group }: Me): string {

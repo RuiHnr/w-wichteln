@@ -10,8 +10,10 @@ import type {
   Me,
   SettingsErrorResponse,
   ValidationErrorResponse,
+  WishlistErrorResponse,
 } from "../shared/api";
 import type { GroupInputErrors, GroupSettingsErrors, RawGroupInput } from "../shared/group-input";
+import type { WishlistError } from "../shared/wishlist";
 
 export type CreateGroupResult = { ok: true; created: CreateGroupResponse } | { ok: false; errors: GroupInputErrors };
 
@@ -145,4 +147,25 @@ export async function drawGroup(token: string, groupId: string): Promise<Organiz
 export async function resetGroup(token: string, groupId: string): Promise<OrganizerActionResult> {
   const response = await sendManage(token, "DELETE", `/api/groups/${encodeURIComponent(groupId)}/draw`);
   return readManage(response, "DELETE /api/groups/draw");
+}
+
+export type SaveWishlistResult =
+  | { ok: true; me: Me }
+  | { ok: false; errors: { wishlist: WishlistError } }
+  | { ok: false; error: "unknown_token" };
+
+/** Replaces the caller's own wishlist; empty text clears it. Throws when the server cannot be reached or fails. */
+export async function saveWishlist(token: string, wishlist: string): Promise<SaveWishlistResult> {
+  const response = await fetch("/api/me/wishlist", {
+    method: "PUT",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ wishlist }),
+  });
+  if (response.status === 401) return { ok: false, error: "unknown_token" };
+  if (response.status === 400) {
+    const { errors } = (await response.json()) as WishlistErrorResponse;
+    return { ok: false, errors };
+  }
+  if (!response.ok) throw new Error(`PUT /api/me/wishlist answered ${response.status}`);
+  return { ok: true, me: (await response.json()) as Me };
 }

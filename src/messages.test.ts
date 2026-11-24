@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateGroupSettings } from "../shared/group-input";
-import { budgetInputValue } from "./messages";
+import { MAX_WISHLIST_LENGTH, validateWishlist } from "../shared/wishlist";
+import { budgetInputValue, wishlistLengthHint } from "./messages";
 
 describe("budgetInputValue", () => {
   it("writes whole euros without decimals and cents with a German comma", () => {
@@ -15,5 +16,21 @@ describe("budgetInputValue", () => {
         value: { budgetCents: cents },
       });
     }
+  });
+});
+
+describe("wishlistLengthHint", () => {
+  it("counts down from the maximum like the field's maxlength, spaces included", () => {
+    expect(wishlistLengthHint("")).toBe("Noch 1000 Zeichen frei.");
+    expect(wishlistLengthHint("  Tee  ")).toBe("Noch 993 Zeichen frei.");
+    expect(wishlistLengthHint("a".repeat(999))).toBe("Noch 1 Zeichen frei.");
+  });
+
+  it("reaches zero exactly where the server starts refusing", () => {
+    const longest = "🎁".repeat(MAX_WISHLIST_LENGTH / 2);
+    expect(wishlistLengthHint(longest)).toBe("Noch 0 Zeichen frei.");
+    expect(validateWishlist(longest).ok).toBe(true);
+    expect(validateWishlist(`${longest}a`)).toEqual({ ok: false, error: "tooLong" });
+    expect(validateWishlist(`  ${longest}\n`).ok).toBe(true);
   });
 });

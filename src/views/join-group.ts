@@ -2,7 +2,7 @@ import type { InviteResponse, JoinGroupResponse } from "../../shared/api";
 import { MAX_PARTICIPANT_NAME_LENGTH, validateParticipantName } from "../../shared/group-input";
 import { joinGroup } from "../api";
 import { escapeHtml, showMessage, showView } from "../html";
-import { joinNameErrorMessage } from "../messages";
+import { joinNameErrorMessage, NETWORK_ERROR } from "../messages";
 import { groupFacts, phaseLabel } from "./group-facts";
 
 function markup({ group }: InviteResponse): string {
@@ -76,7 +76,7 @@ export function renderJoinGroup(
       else if ("nameError" in result) showError(joinNameErrorMessage(result.nameError));
       else renderJoinClosed(main);
     } catch {
-      status.textContent = "Das hat nicht geklappt. Prüf deine Verbindung und versuch es noch mal.";
+      status.textContent = NETWORK_ERROR;
     } finally {
       clearTimeout(sendingNotice);
       sending = false;

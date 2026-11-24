@@ -1,6 +1,7 @@
 /** Shapes the API sends to the browser. */
 
 import type { GroupInputErrors, GroupSettingsErrors, ParticipantNameError } from "./group-input";
+import type { WishlistError } from "./wishlist";
 
 export type GroupPhase = "open" | "drawn";
 
@@ -35,6 +36,8 @@ export interface ExclusionView {
 export interface Me {
   group: GroupView;
   participant: ParticipantView;
+  /** The caller's own wishlist; empty when they have not written one. */
+  wishlist: string;
   /** Everyone in the caller's group, in the order they joined. */
   participants: ParticipantView[];
   /** The group's exclusions, in the order they were added. Only organizers get this field. */
@@ -43,8 +46,11 @@ export interface Me {
   recipient?: RecipientView;
 }
 
-/** The recipient of the caller's assignment. */
-export type RecipientView = Pick<ParticipantView, "id" | "name">;
+/** The recipient of the caller's assignment, with their wishlist: the only other wishlist anyone sees. */
+export interface RecipientView extends Pick<ParticipantView, "id" | "name"> {
+  /** Empty when the recipient has not written one. */
+  wishlist: string;
+}
 
 /** 201 from POST /api/groups. */
 export interface CreateGroupResponse {
@@ -98,4 +104,9 @@ export type ExclusionInputError = "invalid" | "same";
 /** 400 from POST /api/groups/:groupId/exclusions. */
 export interface ExclusionErrorResponse {
   errors: { participantIds: ExclusionInputError };
+}
+
+/** 400 from PUT /api/me/wishlist. */
+export interface WishlistErrorResponse {
+  errors: { wishlist: WishlistError };
 }
