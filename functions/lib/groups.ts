@@ -92,6 +92,15 @@ interface GroupRow {
   swap_limit: number;
 }
 
+interface ParticipantRow {
+  id: string;
+  name: string;
+  is_organizer: number;
+  link_renewed_by: string | null;
+  link_renewed_by_id: string | null;
+  link_renewed_at: string | null;
+}
+
 interface MeRow extends GroupRow {
   participant_id: string;
   participant_name: string;
@@ -119,15 +128,18 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
   if (!row) return null;
   const { results } = await db
     .prepare(
-      "SELECT id, name, is_organizer, link_renewed_by, link_renewed_at FROM participants WHERE group_id = ? ORDER BY created_at, rowid",
+      `SELECT id, name, is_organizer, link_renewed_by, link_renewed_by_id, link_renewed_at
+         FROM participants WHERE group_id = ? ORDER BY created_at, rowid`,
     )
     .bind(row.group_id)
-    .all<{ id: string; name: string; is_organizer: number; link_renewed_by: string | null; link_renewed_at: string | null }>();
+    .all<ParticipantRow>();
   const me = toMe(
     row,
     results.map((p) => {
       const view: ParticipantView = { id: p.id, name: p.name, isOrganizer: p.is_organizer === 1 };
-      if (p.link_renewed_by !== null && p.link_renewed_at !== null) view.linkRenewal = { by: p.link_renewed_by, at: p.link_renewed_at };
+      if (p.link_renewed_by !== null && p.link_renewed_by_id !== null && p.link_renewed_at !== null) {
+        view.linkRenewal = { by: p.link_renewed_by, byId: p.link_renewed_by_id, at: p.link_renewed_at };
+      }
       return view;
     }),
   );

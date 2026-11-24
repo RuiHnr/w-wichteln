@@ -29,6 +29,8 @@ export interface ParticipantView {
 export interface LinkRenewalView {
   /** The organizer's name at the time; it stays after they leave the group. */
   by: string;
+  /** The organizer's participant id, to tell them apart from someone who later joins under the same name. */
+  byId: string;
   /** ISO 8601, UTC. */
   at: string;
 }

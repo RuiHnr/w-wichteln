@@ -179,10 +179,11 @@ export async function renewLink(db: D1Database, token: string, groupId: string, 
       `UPDATE participants
           SET token_hash = ?,
               link_renewed_by = (SELECT caller.name FROM participants caller WHERE caller.token_hash = ?),
+              link_renewed_by_id = (SELECT caller.id FROM participants caller WHERE caller.token_hash = ?),
               link_renewed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         WHERE id = ? AND group_id = ? AND ${CALLER_IS_ORGANIZER}`,
     )
-    .bind(await hashToken(renewed), tokenHash, participantId, groupId, tokenHash, groupId)
+    .bind(await hashToken(renewed), tokenHash, tokenHash, participantId, groupId, tokenHash, groupId)
     .run();
   if (updated.meta.changes !== 1) return { ok: false, reason: await whyRefused(db, token, groupId, participantId, {}) };
   const result = await changed(db, self ? renewed : token);

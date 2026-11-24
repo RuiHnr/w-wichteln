@@ -94,7 +94,7 @@ describe("the trace of Link Renewals", () => {
       const [leaRow, maxRow, inaRow] = (await meWith(token)).participants;
       expect(leaRow.linkRenewal).toBeUndefined();
       expect(maxRow.linkRenewal).toBeUndefined();
-      expect(inaRow.linkRenewal).toEqual({ by: "Max", at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/) });
+      expect(inaRow.linkRenewal).toEqual({ by: "Max", byId: max.me.participant.id, at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/) });
       expect(Math.abs(Date.parse(inaRow.linkRenewal!.at) - Date.now())).toBeLessThan(60_000);
     }
   });

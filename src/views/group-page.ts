@@ -22,7 +22,7 @@ function participantList(me: Me): string {
       const actions = me.participant.isOrganizer ? participantActions(me, p) : "";
       // Everyone sees who renewed whose link and when (ADR 0004).
       const renewal = p.linkRenewal
-        ? `<span class="people__note">${escapeHtml(linkRenewalNote(p.linkRenewal, me.participant.name))}</span>`
+        ? `<span class="people__note">${escapeHtml(linkRenewalNote(p.linkRenewal, me.participant.id))}</span>`
         : "";
       return `<li class="people__item"><span class="people__name">${escapeHtml(p.name)}${you}${organizer}${renewal}</span>${actions}</li>`;
     })
@@ -106,7 +106,13 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
   if (after) restoreFocus(main, after);
   const rerender: Rerender = (fresh, next, nextToken = token) => {
     // After organizers renewed their own link, this device goes on with the new token.
-    if (nextToken !== token) createIdentityStore(localStorage).remember(fresh.group.id, nextToken);
+    if (nextToken !== token) {
+      try {
+        createIdentityStore(localStorage).remember(fresh.group.id, nextToken);
+      } catch {
+        // Storage refused (private mode, full): the page still shows the new link to save.
+      }
+    }
     renderGroupPage(main, fresh, nextToken, next);
   };
   if (recipient) wireGiftReveal(main, () => reveals.rememberUnwrapped(group.id, recipient.id));

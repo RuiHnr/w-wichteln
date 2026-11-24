@@ -12,6 +12,9 @@ import type { Rerender } from "./page-actions";
  * copy and share, since only its hash is stored. Renewing your own link moves this device to it.
  */
 
+const RENEW_SELF_NETWORK_ERROR =
+  "Keine Verbindung. Falls dein neuer Link trotzdem erstellt wurde, gilt dein alter nicht mehr. Bitte dann eine andere Person mit Organisator-Rolle um einen neuen.";
+
 /** The button on one participant's row, for organizers. */
 export function renewLinkButton(me: Me, p: ParticipantView): string {
   const isSelf = p.id === me.participant.id;
@@ -95,6 +98,7 @@ export function wireLinkRenewal(main: HTMLElement, me: Me, token: string, rerend
     if (busy) return;
     busy = true;
     const focus = `renew-${target.id}`;
+    const isSelf = target.id === me.participant.id;
     try {
       const result = await renewLink(token, me.group.id, target.id);
       if (!result.ok) {
@@ -105,12 +109,16 @@ export function wireLinkRenewal(main: HTMLElement, me: Me, token: string, rerend
         return;
       }
       const { token: renewedToken, me: fresh } = result.renewed;
-      const isSelf = target.id === me.participant.id;
       const done = isSelf ? "Du hast einen neuen persönlichen Link." : `${target.name} hat einen neuen persönlichen Link.`;
-      rerender(fresh, { status: done, focus }, isSelf ? renewedToken : token);
-      showRenewed(target, isSelf, personalLink(renewedToken));
+      // The old token is dead on the server now, so the new link is shown whatever happens to the page.
+      try {
+        rerender(fresh, { status: done, focus }, isSelf ? renewedToken : token);
+      } finally {
+        showRenewed(target, isSelf, personalLink(renewedToken));
+      }
     } catch {
-      status.textContent = NETWORK_ERROR;
+      // The renewal may have gone through with only the answer lost; then the old link no longer works.
+      status.textContent = isSelf ? RENEW_SELF_NETWORK_ERROR : NETWORK_ERROR;
     } finally {
       busy = false;
     }
@@ -125,6 +133,8 @@ export function wireLinkRenewal(main: HTMLElement, me: Me, token: string, rerend
     const input = dialog.querySelector<HTMLInputElement>("#renewed-link")!;
     dialog.addEventListener("close", () => main.querySelector<HTMLElement>(`[data-focus="${CSS.escape(`renew-${target.id}`)}"]`)?.focus());
     dialog.querySelector("[data-renewed-done]")!.addEventListener("click", () => dialog.close());
+    // The link is shown only once: Escape must not throw it away, only "Fertig" closes.
+    dialog.addEventListener("cancel", (event) => event.preventDefault());
 
     const copy = dialog.querySelector<HTMLButtonElement>("[data-renewed-copy]")!;
     copy.addEventListener("click", async () => {
