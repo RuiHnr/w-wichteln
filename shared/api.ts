@@ -13,6 +13,8 @@ export interface GroupView {
   exchangeDate: string;
   phase: GroupPhase;
   inviteCode: string;
+  /** The Swap Limit, 0 to 5: how many completed swaps each participant may take part in; 0 turns swapping off. */
+  swapLimit: number;
 }
 
 export interface ParticipantView {
@@ -23,7 +25,7 @@ export interface ParticipantView {
 
 /** 200 from GET /api/invites/:code: what someone is about to join. No participants, no invite code. */
 export interface InviteResponse {
-  group: Omit<GroupView, "inviteCode">;
+  group: Omit<GroupView, "inviteCode" | "swapLimit">;
 }
 
 /** An exclusion between two participants of the group; it works in both directions, so the order means nothing. */
@@ -108,6 +110,11 @@ export type ManageError =
 /** 400 from PATCH /api/groups/:groupId: one error code per invalid field. */
 export interface SettingsErrorResponse {
   errors: GroupSettingsErrors;
+}
+
+/** 400 from PUT /api/groups/:groupId/swap-limit when `swapLimit` is not a whole number from 0 to 5. */
+export interface SwapLimitErrorResponse {
+  errors: { swapLimit: "invalid" };
 }
 
 /** 400 from PATCH /api/groups/:groupId/participants/:participantId when `isOrganizer` is not a boolean. */

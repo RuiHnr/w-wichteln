@@ -1,5 +1,5 @@
 import type { ExclusionView, GroupPhase, GroupView, InviteResponse, Me, ParticipantView, RecipientView, SwapsView } from "../../shared/api";
-import type { GroupInput } from "../../shared/group-input";
+import { DEFAULT_SWAP_LIMIT, type GroupInput } from "../../shared/group-input";
 import { hashToken, newInviteCode, newToken } from "./tokens";
 
 /** Creates a group with its creator as first organizer and participant. */
@@ -16,6 +16,7 @@ export async function createGroup(db: D1Database, input: GroupInput): Promise<{ 
     exchange_date: input.exchangeDate,
     phase: "open",
     invite_code: inviteCode,
+    swap_limit: DEFAULT_SWAP_LIMIT,
     participant_id: participantId,
     participant_name: input.organizerName,
     is_organizer: 1,
@@ -39,12 +40,12 @@ export async function createGroup(db: D1Database, input: GroupInput): Promise<{ 
 export async function findInvite(db: D1Database, inviteCode: string): Promise<InviteResponse | null> {
   const row = await db
     .prepare(
-      "SELECT id AS group_id, name AS group_name, budget_cents, exchange_date, phase, invite_code FROM groups WHERE invite_code = ?",
+      "SELECT id AS group_id, name AS group_name, budget_cents, exchange_date, phase, invite_code, swap_limit FROM groups WHERE invite_code = ?",
     )
     .bind(inviteCode)
     .first<GroupRow>();
   if (!row) return null;
-  const { inviteCode: _notShown, ...group } = toGroupView(row);
+  const { inviteCode: _notShown, swapLimit: _alsoNotShown, ...group } = toGroupView(row);
   return { group };
 }
 
@@ -88,6 +89,7 @@ interface GroupRow {
   exchange_date: string;
   phase: GroupPhase;
   invite_code: string;
+  swap_limit: number;
 }
 
 interface MeRow extends GroupRow {
@@ -107,7 +109,7 @@ const WISHLIST_OF_P = "COALESCE((SELECT w.text FROM wishlists w WHERE w.particip
 export async function findMe(db: D1Database, token: string): Promise<Me | null> {
   const row = await db
     .prepare(
-      `SELECT g.id AS group_id, g.name AS group_name, g.budget_cents, g.exchange_date, g.phase, g.invite_code,
+      `SELECT g.id AS group_id, g.name AS group_name, g.budget_cents, g.exchange_date, g.phase, g.invite_code, g.swap_limit,
               p.id AS participant_id, p.name AS participant_name, p.is_organizer, ${WISHLIST_OF_P} AS wishlist
          FROM participants p JOIN groups g ON g.id = p.group_id
         WHERE p.token_hash = ?`,
@@ -198,6 +200,7 @@ function toGroupView(row: GroupRow): GroupView {
     exchangeDate: row.exchange_date,
     phase: row.phase,
     inviteCode: row.invite_code,
+    swapLimit: row.swap_limit,
   };
 }
 

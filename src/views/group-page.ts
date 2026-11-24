@@ -7,7 +7,7 @@ import { drawPanel, resetPanel } from "./draw-panel";
 import { wireGiftReveal } from "./gift-reveal";
 import { groupFacts, phaseLabel } from "./group-facts";
 import type { AfterAction } from "./page-actions";
-import { exclusionsPanel, participantActions, settingsPanel, wireManage } from "./manage-group";
+import { exclusionsPanel, participantActions, settingsPanel, swapLimitPanel, wireManage } from "./manage-group";
 import { swapPanel, wireSwaps } from "./swap-panel";
 import { wireWishlist, wishlistPanel } from "./wishlist-panel";
 
@@ -62,6 +62,8 @@ function markup(me: Me, token: string, reveal: RevealState, rerender: boolean): 
       ${participant.isOrganizer ? exclusionsPanel(me) : ""}
 
       ${participant.isOrganizer ? settingsPanel(me) : ""}
+
+      ${participant.isOrganizer ? swapLimitPanel(me) : ""}
 
       ${group.phase === "open" ? `
       <section class="panel stack" aria-labelledby="invite-link-heading">

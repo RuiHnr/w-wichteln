@@ -9,6 +9,7 @@ import type {
   ManageError,
   Me,
   SettingsErrorResponse,
+  SwapLimitErrorResponse,
   SwapError,
   ValidationErrorResponse,
   WishlistErrorResponse,
@@ -108,6 +109,15 @@ export async function updateSettings(
     return { ok: false, errors };
   }
   return readAction<ManageError>(response, "PATCH /api/groups");
+}
+
+export type UpdateSwapLimitResult = OrganizerActionResult | { ok: false; errors: SwapLimitErrorResponse["errors"] };
+
+/** Sets the Swap Limit, 0 to 5. */
+export async function updateSwapLimit(token: string, groupId: string, swapLimit: number): Promise<UpdateSwapLimitResult> {
+  const response = await sendWithToken(token, "PUT", `/api/groups/${encodeURIComponent(groupId)}/swap-limit`, { swapLimit });
+  if (response.status === 400) return { ok: false, errors: ((await response.json()) as SwapLimitErrorResponse).errors };
+  return readAction<ManageError>(response, "PUT /api/groups/swap-limit");
 }
 
 export async function setOrganizer(token: string, groupId: string, participantId: string, isOrganizer: boolean): Promise<OrganizerActionResult> {

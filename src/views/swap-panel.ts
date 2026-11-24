@@ -12,16 +12,18 @@ import { onConfirmedClick } from "./page-actions";
  * each sees only their own new one, as a fresh wrapped gift. The API enforces every rule.
  */
 
-/** "0 von 1 genutzt" */
-const limitLine = ({ completed, limit }: SwapsView) => `Tausch-Limit: ${Math.min(completed, limit)} von ${limit} genutzt.`;
+/** "Noch 1 von 2 Tauschen übrig." */
+const limitLine = ({ completed, limit }: SwapsView) =>
+  `Noch ${Math.max(limit - completed, 0)} von ${limit} ${limit === 1 ? "Tausch" : "Tauschen"} übrig.`;
 
+/** With the Swap Limit at 0 there is nothing to ask for, answer or wait on: the panel is not shown at all. */
 export function swapPanel(me: Me): string {
   const swaps = me.swaps;
-  if (!swaps) return "";
+  if (!swaps || swaps.limit === 0) return "";
   return `
     <section class="panel stack swap" aria-labelledby="swap-heading">
       <h2 class="panel__title" id="swap-heading" tabindex="-1" data-focus="swaps">Tausch</h2>
-      ${swaps.limit === 0 ? `<p class="panel__text">In dieser Gruppe ist Tauschen ausgeschaltet.</p>` : swapBody(me, swaps)}
+      ${swapBody(me, swaps)}
       <p class="form__status" role="status" data-swap-status></p>
     </section>`;
 }
@@ -33,7 +35,7 @@ function swapBody(me: Me, swaps: SwapsView): string {
     : `<p class="panel__text">Du möchtest lieber jemand anderen beschenken? Frag eine andere Person, ob sie mit dir tauscht. Keiner von euch sieht vorher, wen der andere beschenkt.</p>`;
   return `
       ${intro}
-      ${atLimit ? "" : `<p class="panel__text swap__limit">${limitLine(swaps)}</p>`}
+      <p class="panel__text swap__limit">${limitLine(swaps)}</p>
       ${incoming(swaps)}
       ${atLimit ? "" : swaps.outgoing ? outgoing(swaps.outgoing) : requestForm(me, swaps.incoming.length > 0)}`;
 }
