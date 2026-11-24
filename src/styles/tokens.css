@@ -20,6 +20,10 @@
   --p-action: #ffc56b;
   --p-action-ink: #0b1430;
   --p-danger: #ff8a7a;
+  /* Festive accents: the wrapped gift, confetti and fairy lights */
+  --p-gift: #d8483f;
+  --p-gift-shade: #a8312b;
+  --p-pine: #5fc28e;
 
   /* Glow: warm fairy light */
   --glow-color: color-mix(in srgb, var(--p-accent) 35%, transparent);
@@ -66,4 +70,5 @@
   --m-in: 150ms;
   --m-out: 120ms;
   --m-press: 90ms;
+  --m-view: 280ms;
 }

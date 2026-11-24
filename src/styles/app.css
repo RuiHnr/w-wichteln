@@ -492,3 +492,295 @@ html {
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
+
+/* Fairy lights: a string of warm bulbs along the header's lower edge, twinkling in turn */
+.app-header {
+  position: relative;
+}
+
+.app-header::before,
+.app-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 8px;
+  pointer-events: none;
+  background-repeat: repeat-x;
+  background-size: 48px 8px;
+}
+
+.app-header::before {
+  background-image:
+    radial-gradient(circle at 12px 4px, var(--p-accent) 2.5px, transparent 3.5px),
+    radial-gradient(circle at 36px 4px, var(--p-gift) 2.5px, transparent 3.5px);
+  filter: drop-shadow(0 0 4px var(--p-accent));
+  animation: twinkle 3.2s ease-in-out infinite alternate;
+}
+
+.app-header::after {
+  background-image:
+    radial-gradient(circle at 24px 4px, var(--p-accent-soft) 2.5px, transparent 3.5px),
+    radial-gradient(circle at 0 4px, var(--p-pine) 2.5px, transparent 3.5px);
+  filter: drop-shadow(0 0 4px var(--p-accent-soft));
+  animation: twinkle 3.2s ease-in-out -1.6s infinite alternate;
+}
+
+@keyframes twinkle {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* The header name answers a press as well as a hover */
+.app-header__name:active {
+  transform: scale(0.98);
+  transition: transform var(--m-press) var(--ease);
+}
+
+/* A new screen settles in once; a re-render after an action stays still */
+.view {
+  animation: view-in var(--m-view) var(--ease-enter) both;
+}
+
+.view[data-still] {
+  animation: none;
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.form__status:not(:empty),
+.field__error:not(:empty) {
+  animation: status-in var(--m-in) var(--ease) both;
+}
+
+@keyframes status-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/*
+ * Gift reveal. States on .reveal[data-reveal]: wrapped → opening → shown.
+ * Gift, name and confetti share one grid cell; hint and replay share another,
+ * so the panel keeps its size in every state. Only transform and opacity animate.
+ */
+.reveal {
+  overflow: clip;
+}
+
+.reveal__stage,
+.reveal__foot {
+  display: grid;
+  place-items: center;
+}
+
+.reveal__stage > *,
+.reveal__foot > * {
+  grid-area: 1 / 1;
+}
+
+.reveal__stage {
+  min-height: 11.5rem;
+}
+
+.reveal__name {
+  justify-self: stretch;
+  text-align: center;
+}
+
+.reveal__name:focus {
+  outline: none;
+}
+
+.reveal__name:focus-visible {
+  outline: 2px solid var(--p-accent);
+}
+
+.gift {
+  display: grid;
+  place-items: center;
+  width: 11rem;
+  height: 11rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gift__art {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 18px var(--glow-color));
+  transition: transform var(--m-out) var(--ease);
+}
+
+.gift__art g {
+  transform-box: fill-box;
+  transition: transform var(--m-out) var(--ease);
+}
+
+.gift__lid,
+.gift__bow {
+  transform-origin: 50% 100%;
+}
+
+.gift__box {
+  transform-origin: 50% 100%;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reveal[data-reveal="wrapped"] .gift:hover .gift__art {
+    transform: translateY(-3px);
+    transition-duration: var(--m-in);
+  }
+
+  /* a peek under the lid */
+  .reveal[data-reveal="wrapped"] .gift:hover :is(.gift__lid, .gift__bow) {
+    transform: translateY(-5px);
+    transition-duration: var(--m-in);
+  }
+}
+
+.reveal[data-reveal="wrapped"] .gift:active .gift__art {
+  transform: scale(0.96);
+  transition-duration: var(--m-press);
+}
+
+.reveal[data-reveal="wrapped"] .gift__art {
+  animation: gift-in 420ms var(--ease-enter) both;
+}
+
+.reveal[data-reveal="wrapped"] .reveal__name,
+.reveal[data-reveal="wrapped"] .reveal__replay,
+.reveal[data-reveal="opening"] .reveal__hint,
+.reveal[data-reveal="opening"] .reveal__replay,
+.reveal[data-reveal="shown"] .gift,
+.reveal[data-reveal="shown"] .reveal__hint,
+.reveal:not([data-reveal="shown"]) .reveal__wishlist {
+  visibility: hidden;
+}
+
+.reveal[data-reveal="opening"] .gift {
+  pointer-events: none;
+}
+
+.reveal[data-reveal="opening"] .gift__bow {
+  animation: bow-untie 380ms var(--ease) both;
+}
+
+.reveal[data-reveal="opening"] .gift__lid {
+  animation: lid-off 560ms var(--ease-enter) 280ms both;
+}
+
+.reveal[data-reveal="opening"] .gift__box {
+  animation: box-away 420ms var(--ease) 820ms both;
+}
+
+.reveal[data-reveal="opening"] .reveal__name {
+  animation: name-in 560ms var(--ease-enter) 960ms both;
+}
+
+.reveal[data-reveal="shown"] .reveal__replay {
+  animation: status-in var(--m-view) var(--ease) both;
+}
+
+.confetti {
+  align-self: start;
+  margin-top: 2.5rem;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.confetti__piece {
+  position: absolute;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti 1300ms cubic-bezier(0.15, 0.7, 0.3, 1) calc(560ms + var(--delay)) both;
+}
+
+.confetti__piece:nth-child(3n) {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+@keyframes gift-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes bow-untie {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.3) rotate(-25deg);
+  }
+}
+
+@keyframes lid-off {
+  to {
+    opacity: 0;
+    transform: translate(-12px, -90px) rotate(-22deg);
+  }
+}
+
+@keyframes box-away {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.85);
+  }
+}
+
+@keyframes name-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+}
+
+@keyframes confetti {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 0.85), var(--dy)) rotate(calc(var(--spin) * 0.6));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), calc(var(--dy) + 70px)) rotate(var(--spin));
+  }
+}
+
+/* Under reduced motion everything rests: no twinkle, no entrance, and nothing to replay */
+@media (prefers-reduced-motion: reduce) {
+  .app-header::before,
+  .app-header::after,
+  .view,
+  .reveal .gift__art {
+    animation: none;
+  }
+
+  .reveal__replay,
+  .reveal[data-reveal="shown"] .reveal__foot {
+    display: none;
+  }
+}
