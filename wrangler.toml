@@ -3,7 +3,7 @@ compatibility_date = "2026-11-01"
 pages_build_output_dir = "dist"
 
 [[d1_databases]]
-binding = "DB"
+binding = "w_wichteln"
 database_name = "w-wichteln"
-database_id = "00000000-0000-0000-0000-000000000000" # replace with the real id from `wrangler d1 create w-wichteln` (see #13)
+database_id = "612f1c12-f4b9-4768-bf41-1a17e6d08053"
 migrations_dir = "migrations"
