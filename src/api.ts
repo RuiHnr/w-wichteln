@@ -4,10 +4,12 @@ import type {
   JoinErrorResponse,
   JoinGroupResponse,
   JoinNameError,
+  ManageError,
   Me,
+  SettingsErrorResponse,
   ValidationErrorResponse,
 } from "../shared/api";
-import type { GroupInputErrors, RawGroupInput } from "../shared/group-input";
+import type { GroupInputErrors, GroupSettingsErrors, RawGroupInput } from "../shared/group-input";
 
 export type CreateGroupResult = { ok: true; created: CreateGroupResponse } | { ok: false; errors: GroupInputErrors };
 
@@ -60,4 +62,54 @@ export async function joinGroup(inviteCode: string, name: string): Promise<JoinG
   }
   if (!response.ok) throw new Error(`POST /api/invites/participants answered ${response.status}`);
   return { ok: true, joined: (await response.json()) as JoinGroupResponse };
+}
+
+/** An organizer action: the caller's fresh view, or why the server refused it. */
+export type OrganizerActionResult = { ok: true; me: Me } | { ok: false; error: ManageError };
+
+/** Sends an organizer action. Throws when the server cannot be reached or fails in a way the API does not describe. */
+async function sendManage(token: string, method: string, path: string, body?: unknown): Promise<Response> {
+  return fetch(path, {
+    method,
+    headers: { authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "content-type": "application/json" }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+async function readManage(response: Response, label: string): Promise<OrganizerActionResult> {
+  if ([401, 403, 404, 409].includes(response.status)) {
+    const { error } = (await response.json()) as { error: ManageError };
+    return { ok: false, error };
+  }
+  if (!response.ok) throw new Error(`${label} answered ${response.status}`);
+  return { ok: true, me: (await response.json()) as Me };
+}
+
+const participantPath = (groupId: string, participantId: string) =>
+  `/api/groups/${encodeURIComponent(groupId)}/participants/${encodeURIComponent(participantId)}`;
+
+export type UpdateSettingsResult = OrganizerActionResult | { ok: false; errors: GroupSettingsErrors };
+
+/** Changes budget and exchange date; field errors come back as a result. */
+export async function updateSettings(
+  token: string,
+  groupId: string,
+  input: { budget: string; exchangeDate: string },
+): Promise<UpdateSettingsResult> {
+  const response = await sendManage(token, "PATCH", `/api/groups/${encodeURIComponent(groupId)}`, input);
+  if (response.status === 400) {
+    const { errors } = (await response.json()) as SettingsErrorResponse;
+    return { ok: false, errors };
+  }
+  return readManage(response, "PATCH /api/groups");
+}
+
+export async function setOrganizer(token: string, groupId: string, participantId: string, isOrganizer: boolean): Promise<OrganizerActionResult> {
+  const response = await sendManage(token, "PATCH", participantPath(groupId, participantId), { isOrganizer });
+  return readManage(response, "PATCH /api/groups/participants");
+}
+
+export async function removeParticipant(token: string, groupId: string, participantId: string): Promise<OrganizerActionResult> {
+  const response = await sendManage(token, "DELETE", participantPath(groupId, participantId));
+  return readManage(response, "DELETE /api/groups/participants");
 }

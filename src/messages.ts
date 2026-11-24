@@ -1,4 +1,4 @@
-import type { JoinNameError } from "../shared/api";
+import type { JoinNameError, ManageError } from "../shared/api";
 import type { GroupField, GroupInputError } from "../shared/group-input";
 import { MAX_BUDGET_EUROS, MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH } from "../shared/group-input";
 
@@ -33,6 +33,22 @@ export function joinNameErrorMessage(error: JoinNameError): string {
 
 export function fieldErrorMessage(field: GroupField, error: GroupInputError): string {
   return fieldErrorMessages[field][error] ?? "Prüf deine Eingabe.";
+}
+
+/** What to tell an organizer whose action the server refused, in German. */
+export const manageErrorMessages: Record<ManageError, string> = {
+  unknown_token: "Dieses Gerät ist in der Gruppe nicht mehr angemeldet.",
+  not_organizer: "Du bist kein Organisator mehr. Die Seite zeigt jetzt den aktuellen Stand.",
+  unknown_participant: "Diese Person ist nicht mehr in der Gruppe.",
+  drawn: "Nach der Auslosung kann niemand mehr entfernt werden.",
+  last_organizer: "Die Gruppe braucht immer mindestens einen Organisator.",
+  self: "Dich selbst kannst du nicht entfernen.",
+};
+
+/** 2000 → "20", 1250 → "12,50": the budget as the settings form shows it for editing. */
+export function budgetInputValue(cents: number): string {
+  const euros = Math.floor(cents / 100);
+  return cents % 100 === 0 ? String(euros) : `${euros},${String(cents % 100).padStart(2, "0")}`;
 }
 
 /** 2000 → "20 €", 1250 → "12,50 €" */

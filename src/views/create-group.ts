@@ -4,14 +4,9 @@ import { MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH, validateGroupInput 
 import { createGroup } from "../api";
 import { showView } from "../html";
 import { fieldErrorMessage } from "../messages";
+import { localToday } from "../today";
 
 const fields: GroupField[] = ["name", "budget", "exchangeDate", "organizerName"];
-
-/** The visitor's local date as YYYY-MM-DD. */
-function localToday(now = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
 
 function markup(today: string): string {
   return `

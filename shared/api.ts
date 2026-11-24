@@ -1,6 +1,6 @@
 /** Shapes the API sends to the browser. */
 
-import type { GroupInputErrors, ParticipantNameError } from "./group-input";
+import type { GroupInputErrors, GroupSettingsErrors, ParticipantNameError } from "./group-input";
 
 export type GroupPhase = "open" | "drawn";
 
@@ -53,4 +53,17 @@ export type JoinNameError = ParticipantNameError | "taken";
 /** 400 or 409 from POST /api/invites/:code/participants when the name cannot be used. */
 export interface JoinErrorResponse {
   errors: { name: JoinNameError };
+}
+
+/** Why an organizer action was refused, in `{ error }` of a 401, 403, 404 or 409. */
+export type ManageError = "unknown_token" | "not_organizer" | "unknown_participant" | "drawn" | "last_organizer" | "self";
+
+/** 400 from PATCH /api/groups/:groupId: one error code per invalid field. */
+export interface SettingsErrorResponse {
+  errors: GroupSettingsErrors;
+}
+
+/** 400 from PATCH /api/groups/:groupId/participants/:participantId when `isOrganizer` is not a boolean. */
+export interface OrganizerErrorResponse {
+  errors: { isOrganizer: "invalid" };
 }

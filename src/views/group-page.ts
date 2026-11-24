@@ -2,19 +2,23 @@ import type { Me } from "../../shared/api";
 import { escapeHtml, showMessage, showView } from "../html";
 import { inviteLink, personalLink } from "../links";
 import { groupFacts, phaseLabel } from "./group-facts";
+import type { AfterAction } from "./manage-group";
+import { participantActions, settingsPanel, wireManage } from "./manage-group";
 
 function participantList(me: Me): string {
   const items = me.participants
     .map((p) => {
       const you = p.id === me.participant.id ? ` <span class="people__tag">du</span>` : "";
       const organizer = p.isOrganizer ? ` <span class="people__tag">Organisator</span>` : "";
-      return `<li class="people__item">${escapeHtml(p.name)}${you}${organizer}</li>`;
+      const actions = me.participant.isOrganizer ? participantActions(me, p) : "";
+      return `<li class="people__item"><span class="people__name">${escapeHtml(p.name)}${you}${organizer}</span>${actions}</li>`;
     })
     .join("");
   return `
     <section class="panel stack" aria-labelledby="participants-heading">
-      <h2 class="panel__title" id="participants-heading">Teilnehmer <span class="panel__count">${me.participants.length}</span></h2>
+      <h2 class="panel__title" id="participants-heading" tabindex="-1">Teilnehmer <span class="panel__count">${me.participants.length}</span></h2>
       <ul class="people" role="list">${items}</ul>
+      <p class="form__status" role="status" data-people-status></p>
     </section>`;
 }
 
@@ -40,6 +44,8 @@ function markup(me: Me, token: string): string {
       </header>
 
       ${participantList(me)}
+
+      ${participant.isOrganizer ? settingsPanel(me) : ""}
 
       ${group.phase === "open" ? `
       <section class="panel stack" aria-labelledby="invite-link-heading">
@@ -69,8 +75,16 @@ async function copyText(input: HTMLInputElement): Promise<boolean> {
   }
 }
 
-export function renderGroupPage(main: HTMLElement, me: Me, token: string): void {
+/**
+ * Shows the group page. After an organizer action, `after` says what happened (announced
+ * in the status line next to the control) and which control keeps the focus.
+ */
+export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?: AfterAction): void {
   showView(main, markup(me, token));
+  if (after) restoreFocus(main, after);
+  if (me.participant.isOrganizer) {
+    wireManage(main, me, token, (fresh, next) => renderGroupPage(main, fresh, token, next), () => renderNotRecognised(main));
+  }
   const status = main.querySelector<HTMLElement>("[data-copy-status]")!;
 
   for (const button of main.querySelectorAll<HTMLButtonElement>("[data-copy]")) {
@@ -86,6 +100,15 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string): void 
       reset = setTimeout(() => (button.textContent = "Kopieren"), 2000);
     });
   }
+}
+
+/** Puts focus back near the control that was used and announces the outcome there. */
+function restoreFocus(main: HTMLElement, after: AfterAction): void {
+  const control = after.focus ? main.querySelector<HTMLElement>(`[data-focus="${CSS.escape(after.focus)}"]`) : null;
+  (control ?? main.querySelector<HTMLElement>("#participants-heading"))!.focus();
+  const status = control?.closest("form")?.querySelector<HTMLElement>("[role=status]") ?? main.querySelector<HTMLElement>("[data-people-status]")!;
+  // A live region filled in the same frame it is inserted is often not read out.
+  setTimeout(() => (status.textContent = after.status), 50);
 }
 
 /** Shown when this browser has no (valid) token for the group in the address bar. */

@@ -65,45 +65,63 @@ function checkName(name: string, maxLength: number): ParticipantNameError | unde
   return undefined;
 }
 
-/** A real calendar date as YYYY-MM-DD, not before `today`. */
-function checkExchangeDate(raw: string, today: string): GroupInputError | undefined {
+/** A real calendar date as YYYY-MM-DD, not before `today` unless `allowPast`. */
+function checkExchangeDate(raw: string, today: string, allowPast = false): GroupInputError | undefined {
   if (!raw) return "required";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "invalid";
   const date = new Date(`${raw}T00:00:00Z`);
   if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== raw) return "invalid";
-  if (raw < today) return "past";
+  if (!allowPast && raw < today) return "past";
   return undefined;
+}
+
+/** The settings an organizer can change at any time. */
+export interface GroupSettings {
+  budgetCents: number;
+  /** Gift-exchange date as YYYY-MM-DD. */
+  exchangeDate: string;
+}
+
+export type GroupSettingsField = "budget" | "exchangeDate";
+
+export type GroupSettingsErrors = Partial<Record<GroupSettingsField, GroupInputError>>;
+
+export type GroupSettingsResult = { ok: true; value: GroupSettings } | { ok: false; errors: GroupSettingsErrors };
+
+/**
+ * Budget and exchange date as an organizer sends them when editing a group.
+ * @param today the current date as YYYY-MM-DD; a new exchange date may not lie before it.
+ * @param currentDate the group's exchange date so far: keeping it is fine even once it has passed.
+ */
+export function validateGroupSettings(raw: unknown, today: string, currentDate?: string): GroupSettingsResult {
+  const errors: GroupSettingsErrors = {};
+
+  const budget = parseBudgetCents(fieldText(raw, "budget"));
+  if (typeof budget === "string") errors.budget = budget;
+
+  const exchangeDate = fieldText(raw, "exchangeDate");
+  const dateError = checkExchangeDate(exchangeDate, today, exchangeDate === currentDate);
+  if (dateError) errors.exchangeDate = dateError;
+
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, value: { budgetCents: budget as number, exchangeDate } };
 }
 
 /**
  * @param today the current date as YYYY-MM-DD; the exchange date may not lie before it.
  */
 export function validateGroupInput(raw: unknown, today: string): GroupInputResult {
-  const errors: GroupInputErrors = {};
+  const settings = validateGroupSettings(raw, today);
+  const errors: GroupInputErrors = settings.ok ? {} : { ...settings.errors };
 
   const name = fieldText(raw, "name");
   const nameError = checkName(name, MAX_GROUP_NAME_LENGTH);
   if (nameError) errors.name = nameError;
 
-  const budget = parseBudgetCents(fieldText(raw, "budget"));
-  if (typeof budget === "string") errors.budget = budget;
-
-  const exchangeDate = fieldText(raw, "exchangeDate");
-  const dateError = checkExchangeDate(exchangeDate, today);
-  if (dateError) errors.exchangeDate = dateError;
-
   const organizerName = fieldText(raw, "organizerName");
   const organizerNameError = checkName(organizerName, MAX_PARTICIPANT_NAME_LENGTH);
   if (organizerNameError) errors.organizerName = organizerNameError;
 
-  if (Object.keys(errors).length > 0) return { ok: false, errors };
-  return {
-    ok: true,
-    value: {
-      name,
-      budgetCents: budget as number,
-      exchangeDate,
-      organizerName,
-    },
-  };
+  if (!settings.ok || Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, value: { name, ...settings.value, organizerName } };
 }
