@@ -131,11 +131,15 @@ describe("a changed Swap Limit", () => {
     await setLimit(organizer, groupId, 2);
     const [a, b] = swappablePairs(givers)[0];
     await completeSwap(a, b);
-    const others = givers.filter((g) => g !== a && g !== b);
-    // a sends to someone, then the limit drops to 1: a has completed 1 swap and is at the limit
-    const target = others[0];
-    const response = await send(a.token, target.id);
-    if (response.status !== 200) return; // the swap above may leave no valid partner in this draw
+    // a asks someone else; not every draw leaves a valid partner after the first swap
+    let target: Giver | undefined;
+    for (const g of givers.filter((g) => g !== a && g !== b)) {
+      if ((await send(a.token, g.id)).status === 200) {
+        target = g;
+        break;
+      }
+    }
+    if (!target) return;
     await setLimit(organizer, groupId, 1);
     expect((await meWith(a.token)).swaps!.outgoing).toBeUndefined();
     expect((await meWith(target.token)).swaps!.incoming).toEqual([]);
