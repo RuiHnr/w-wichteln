@@ -370,3 +370,34 @@ html {
   text-overflow: ellipsis;
   cursor: pointer;
 }
+
+/* Draw: the start button, then the one name the participant gives to */
+.draw__start {
+  justify-self: start;
+}
+
+@media (max-width: 479px) {
+  .draw__start {
+    justify-self: stretch;
+  }
+}
+
+.draw {
+  border-color: color-mix(in srgb, var(--p-accent) 45%, transparent);
+  box-shadow: var(--glow-soft);
+}
+
+.draw__label {
+  font: 600 var(--text-sm) / 1.2 var(--font-text);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--p-accent);
+}
+
+.draw__name {
+  font: var(--display-weight) var(--text-display) / var(--leading-tight) var(--font-display);
+  letter-spacing: var(--display-tracking);
+  color: var(--p-accent-soft);
+  text-shadow: var(--glow-strong);
+  overflow-wrap: anywhere;
+}

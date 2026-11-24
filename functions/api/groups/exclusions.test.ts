@@ -95,7 +95,7 @@ describe("POST /api/groups/:groupId/exclusions refused", () => {
 
   it("answers 409 drawn once the group has been drawn, and adds nothing", async () => {
     const { lea, max, ina, groupId } = await groupOfThree();
-    await draw(groupId);
+    await draw(lea.token, groupId);
 
     const response = await addExclusion(lea.token, groupId, [max.me.participant.id, ina.me.participant.id]);
 
@@ -170,7 +170,9 @@ describe("DELETE /api/groups/:groupId/exclusions/:exclusionId refused", () => {
 
   it("answers 409 drawn once the group has been drawn, and keeps the exclusion", async () => {
     const { lea, groupId, exclusionId } = await groupWithExclusion();
-    await draw(groupId);
+    // With only three, the exclusion between Max and Ina would leave no valid draw.
+    await joinAs(lea.me.group.inviteCode, "Tom");
+    await draw(lea.token, groupId);
 
     const response = await removeExclusion(lea.token, groupId, exclusionId);
 

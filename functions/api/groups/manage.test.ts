@@ -21,12 +21,14 @@ function editSettings(token: string | null, groupId: string, body: unknown) {
 describe("PATCH /api/groups/:groupId", () => {
   it("lets an organizer change budget and date while the group is open and when it is drawn", async () => {
     const { token, me } = await newGroup();
+    await joinAs(me.group.inviteCode, "Max");
+    await joinAs(me.group.inviteCode, "Ina");
 
     const open = await editSettings(token, me.group.id, { budget: "25,50", exchangeDate: "2099-12-24" });
     expect(open.status).toBe(200);
     expect((await open.json<Me>()).group).toMatchObject({ budgetCents: 2550, exchangeDate: "2099-12-24" });
 
-    await draw(me.group.id);
+    await draw(token, me.group.id);
     const drawn = await editSettings(token, me.group.id, { budget: "30", exchangeDate: "2099-12-26" });
     expect(drawn.status).toBe(200);
     expect((await meWith(token)).group).toMatchObject({ budgetCents: 3000, exchangeDate: "2099-12-26", phase: "drawn" });
@@ -106,13 +108,14 @@ describe("DELETE /api/groups/:groupId/participants/:participantId refused", () =
   it("answers 409 drawn once the group has been drawn, and keeps the participant", async () => {
     const { token, me } = await newGroup();
     const max = await joinAs(me.group.inviteCode, "Max");
-    await draw(me.group.id);
+    await joinAs(me.group.inviteCode, "Ina");
+    await draw(token, me.group.id);
 
     const response = await removeParticipant(token, me.group.id, max.me.participant.id);
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: "drawn" });
-    expect((await meWith(token)).participants).toHaveLength(2);
+    expect((await meWith(token)).participants).toHaveLength(3);
   });
 
   it("answers 403 to a participant who is not an organizer", async () => {
@@ -191,11 +194,14 @@ describe("PATCH /api/groups/:groupId/participants/:participantId", () => {
   it("lets an organizer grant and revoke the role in the drawn phase, revealing no assignments", async () => {
     const lea = await newGroup();
     const max = await joinAs(lea.me.group.inviteCode, "Max");
-    await draw(lea.me.group.id);
+    await joinAs(lea.me.group.inviteCode, "Ina");
+    const { recipient } = await draw(lea.token, lea.me.group.id);
 
     const granted = await setOrganizer(lea.token, lea.me.group.id, max.me.participant.id, true);
     expect(granted.status).toBe(200);
-    expect(Object.keys(await granted.json<Me>()).sort()).toEqual(["exclusions", "group", "participant", "participants"]);
+    const me = await granted.json<Me>();
+    expect(Object.keys(me).sort()).toEqual(["exclusions", "group", "participant", "participants", "recipient"]);
+    expect(me.recipient).toEqual(recipient);
 
     const revoked = await setOrganizer(lea.token, lea.me.group.id, max.me.participant.id, false);
     expect(revoked.status).toBe(200);

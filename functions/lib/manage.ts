@@ -1,5 +1,7 @@
 import type { ManageError, Me } from "../../shared/api";
 import type { GroupSettings } from "../../shared/group-input";
+import { MIN_PARTICIPANTS_TO_DRAW } from "../../shared/draw";
+import { type Assignments, drawAssignments } from "./draw";
 import { findMe } from "./groups";
 import { hashToken } from "./tokens";
 
@@ -200,6 +202,82 @@ export async function removeExclusion(
   return { ok: false, reason: caller.me.group.phase !== "open" ? "drawn" : "not_organizer" };
 }
 
+/** SQL: the number of participants of the `groups` row in scope. */
+const PARTICIPANT_COUNT = "(SELECT COUNT(*) FROM participants p WHERE p.group_id = groups.id)";
+
+/** How often the draw is retried when the group changed while it was being drawn. */
+const DRAW_ATTEMPTS = 3;
+
+/**
+ * Draws the group: one assignment per participant, then the group is Drawn. Only while
+ * open and with at least 3 participants. When no valid draw exists with the exclusions,
+ * nothing changes.
+ *
+ * The assignments are written in one batch whose statements re-check everything against
+ * the stored group: the caller's role, the phase, that the assignments cover exactly the
+ * current participants and break no current exclusion. If someone joined or an exclusion
+ * changed in the meantime, the batch discards its rows and the draw starts over.
+ */
+export async function drawGroup(db: D1Database, token: string, groupId: string): Promise<ManageResult> {
+  const tokenHash = await hashToken(token);
+  for (let attempt = 0; attempt < DRAW_ATTEMPTS; attempt++) {
+    const caller = await findOrganizer(db, token, groupId);
+    if (!caller.ok) return caller;
+    const { group, participants, exclusions = [] } = caller.me;
+    if (group.phase !== "open") return { ok: false, reason: "drawn" };
+    if (participants.length < MIN_PARTICIPANTS_TO_DRAW) return { ok: false, reason: "too_few" };
+    const assignments = drawAssignments(
+      participants.map((p) => p.id),
+      exclusions.map((e) => e.participantIds),
+    );
+    if (!assignments) return { ok: false, reason: "impossible" };
+
+    if (await writeDraw(db, tokenHash, groupId, assignments)) return changed(db, token);
+  }
+  // Someone kept joining, leaving or changing exclusions while we drew.
+  return { ok: false, reason: "changed" };
+}
+
+/**
+ * Stores the assignments and moves the group to Drawn, in one transaction. Every statement
+ * re-checks against the stored group; true when the group is now Drawn with them.
+ */
+async function writeDraw(db: D1Database, tokenHash: string, groupId: string, assignments: Assignments): Promise<boolean> {
+  const statements = [
+    db
+      .prepare(
+        `INSERT INTO assignments (giver_id, recipient_id, group_id)
+         SELECT json_extract(drawn.value, '$[0]') AS giver, json_extract(drawn.value, '$[1]') AS recipient, g.id
+           FROM groups g, json_each(?) drawn
+          WHERE g.id = ? AND g.phase = 'open' AND ${CALLER_IS_ORGANIZER}
+            -- Someone removed meanwhile gets no row (rather than a foreign key error); the UPDATE then sees too few.
+            AND giver IN (SELECT id FROM participants p WHERE p.group_id = g.id)
+            AND recipient IN (SELECT id FROM participants p WHERE p.group_id = g.id)`,
+      )
+      .bind(JSON.stringify([...assignments]), groupId, tokenHash, groupId),
+    // Drawn only if the rows cover exactly the current participants and break no current exclusion.
+    db
+      .prepare(
+        `UPDATE groups SET phase = 'drawn'
+          WHERE id = ? AND phase = 'open'
+            AND ${PARTICIPANT_COUNT} >= ${MIN_PARTICIPANTS_TO_DRAW}
+            AND ${PARTICIPANT_COUNT} = (SELECT COUNT(*) FROM assignments a WHERE a.group_id = groups.id)
+            AND NOT EXISTS (SELECT 1 FROM assignments a JOIN exclusions e
+                  ON (e.participant_a = a.giver_id AND e.participant_b = a.recipient_id)
+                  OR (e.participant_b = a.giver_id AND e.participant_a = a.recipient_id)
+                 WHERE a.group_id = groups.id)
+          RETURNING id`,
+      )
+      .bind(groupId),
+    // A group that is still open has no assignments: drop the rows of a draw that did not go through.
+    db
+      .prepare("DELETE FROM assignments WHERE group_id = ? AND (SELECT phase FROM groups WHERE id = ?) = 'open'")
+      .bind(groupId, groupId),
+  ];
+  const [, drawn] = await db.batch(statements);
+  return drawn.results.length === 1;
+}
+
 const statusOf: Record<ManageError, number> = {
   unknown_token: 401,
   not_organizer: 403,
@@ -208,6 +286,9 @@ const statusOf: Record<ManageError, number> = {
   drawn: 409,
   last_organizer: 409,
   self: 409,
+  too_few: 409,
+  impossible: 409,
+  changed: 409,
 };
 
 /** The error body and status the API answers a refused management action with. */

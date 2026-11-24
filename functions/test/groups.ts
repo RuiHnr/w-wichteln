@@ -1,6 +1,7 @@
 import { expect } from "vitest";
 import type { CreateGroupResponse, Me } from "../../shared/api";
 import { onRequestPost as createGroup } from "../api/groups";
+import { onRequestPost as drawGroup } from "../api/groups/[groupId]/draw";
 import { onRequestPost as join } from "../api/invites/[code]/participants";
 import { onRequestGet as getMe } from "../api/me";
 import type { Env } from "../env";
@@ -37,7 +38,11 @@ export function groupHelpers(env: () => Env) {
       return (await call(getMe, request("GET", "/api/me", token), env())).json<Me>();
     },
 
-    /** Moves the group to Drawn. Stands in for the draw until it exists. */
-    draw: (groupId: string) => env().DB.prepare("UPDATE groups SET phase = 'drawn' WHERE id = ?").bind(groupId).run(),
+    /** The organizer behind the token draws the group, which needs at least 3 participants. */
+    async draw(token: string, groupId: string): Promise<Me> {
+      const response = await call(drawGroup, request("POST", `/api/groups/${groupId}/draw`, token), env(), { groupId });
+      expect(response.status).toBe(200);
+      return response.json<Me>();
+    },
   };
 }

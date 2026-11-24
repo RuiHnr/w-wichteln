@@ -39,7 +39,12 @@ export interface Me {
   participants: ParticipantView[];
   /** The group's exclusions, in the order they were added. Only organizers get this field. */
   exclusions?: ExclusionView[];
+  /** Whom the caller gives a present to, once the group is drawn. Only ever the caller's own (ADR 0003). */
+  recipient?: RecipientView;
 }
+
+/** The recipient of the caller's assignment. */
+export type RecipientView = Pick<ParticipantView, "id" | "name">;
 
 /** 201 from POST /api/groups. */
 export interface CreateGroupResponse {
@@ -71,7 +76,10 @@ export type ManageError =
   | "unknown_exclusion"
   | "drawn"
   | "last_organizer"
-  | "self";
+  | "self"
+  | "too_few"
+  | "impossible"
+  | "changed";
 
 /** 400 from PATCH /api/groups/:groupId: one error code per invalid field. */
 export interface SettingsErrorResponse {

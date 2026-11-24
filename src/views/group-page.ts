@@ -1,6 +1,7 @@
 import type { Me } from "../../shared/api";
 import { escapeHtml, showMessage, showView } from "../html";
 import { inviteLink, personalLink } from "../links";
+import { drawPanel } from "./draw-panel";
 import { groupFacts, phaseLabel } from "./group-facts";
 import type { AfterAction } from "./manage-group";
 import { exclusionsPanel, participantActions, settingsPanel, wireManage } from "./manage-group";
@@ -43,7 +44,11 @@ function markup(me: Me, token: string): string {
         ${groupFacts(group, `<div class="facts__item"><dt>Du</dt><dd>${escapeHtml(participant.name)} · ${role}</dd></div>`)}
       </header>
 
+      ${group.phase === "drawn" ? drawPanel(me) : ""}
+
       ${participantList(me)}
+
+      ${group.phase === "open" ? drawPanel(me) : ""}
 
       ${participant.isOrganizer ? exclusionsPanel(me) : ""}
 
