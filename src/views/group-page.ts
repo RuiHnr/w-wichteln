@@ -6,8 +6,9 @@ import { createRevealStore, initialRevealState, prefersReducedMotion } from "../
 import { drawPanel, resetPanel } from "./draw-panel";
 import { wireGiftReveal } from "./gift-reveal";
 import { groupFacts, phaseLabel } from "./group-facts";
-import type { AfterAction } from "./manage-group";
+import type { AfterAction } from "./page-actions";
 import { exclusionsPanel, participantActions, settingsPanel, wireManage } from "./manage-group";
+import { swapPanel, wireSwaps } from "./swap-panel";
 import { wireWishlist, wishlistPanel } from "./wishlist-panel";
 
 function participantList(me: Me): string {
@@ -49,6 +50,8 @@ function markup(me: Me, token: string, reveal: RevealState, rerender: boolean): 
       </header>
 
       ${group.phase === "drawn" ? drawPanel(me, reveal) : ""}
+
+      ${swapPanel(me)}
 
       ${wishlistPanel(me)}
 
@@ -105,6 +108,7 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
   const rerender = (fresh: Me, next: AfterAction) => renderGroupPage(main, fresh, token, next);
   if (recipient) wireGiftReveal(main, () => reveals.rememberUnwrapped(group.id, recipient.id));
   wireWishlist(main, token, rerender, () => renderNotRecognised(main));
+  wireSwaps(main, me, token, rerender, () => renderNotRecognised(main));
   if (me.participant.isOrganizer) wireManage(main, me, token, rerender, () => renderNotRecognised(main));
   const status = main.querySelector<HTMLElement>("[data-copy-status]")!;
 

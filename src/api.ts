@@ -9,6 +9,7 @@ import type {
   ManageError,
   Me,
   SettingsErrorResponse,
+  SwapError,
   ValidationErrorResponse,
   WishlistErrorResponse,
 } from "../shared/api";
@@ -71,8 +72,8 @@ export async function joinGroup(inviteCode: string, name: string): Promise<JoinG
 /** An organizer action: the caller's fresh view, or why the server refused it. */
 export type OrganizerActionResult = { ok: true; me: Me } | { ok: false; error: ManageError };
 
-/** Sends an organizer action. Throws when the server cannot be reached or fails in a way the API does not describe. */
-async function sendManage(token: string, method: string, path: string, body?: unknown): Promise<Response> {
+/** Sends an action with the caller's token. Throws when the server cannot be reached or fails in a way the API does not describe. */
+async function sendWithToken(token: string, method: string, path: string, body?: unknown): Promise<Response> {
   return fetch(path, {
     method,
     headers: { authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "content-type": "application/json" }) },
@@ -80,9 +81,10 @@ async function sendManage(token: string, method: string, path: string, body?: un
   });
 }
 
-async function readManage(response: Response, label: string): Promise<OrganizerActionResult> {
+/** An action answered with the caller's fresh view, or with `{ error }` saying why it was refused. */
+async function readAction<E extends string>(response: Response, label: string): Promise<{ ok: true; me: Me } | { ok: false; error: E }> {
   if ([401, 403, 404, 409].includes(response.status)) {
-    const { error } = (await response.json()) as { error: ManageError };
+    const { error } = (await response.json()) as { error: E };
     return { ok: false, error };
   }
   if (!response.ok) throw new Error(`${label} answered ${response.status}`);
@@ -100,22 +102,22 @@ export async function updateSettings(
   groupId: string,
   input: { budget: string; exchangeDate: string },
 ): Promise<UpdateSettingsResult> {
-  const response = await sendManage(token, "PATCH", `/api/groups/${encodeURIComponent(groupId)}`, input);
+  const response = await sendWithToken(token, "PATCH", `/api/groups/${encodeURIComponent(groupId)}`, input);
   if (response.status === 400) {
     const { errors } = (await response.json()) as SettingsErrorResponse;
     return { ok: false, errors };
   }
-  return readManage(response, "PATCH /api/groups");
+  return readAction<ManageError>(response, "PATCH /api/groups");
 }
 
 export async function setOrganizer(token: string, groupId: string, participantId: string, isOrganizer: boolean): Promise<OrganizerActionResult> {
-  const response = await sendManage(token, "PATCH", participantPath(groupId, participantId), { isOrganizer });
-  return readManage(response, "PATCH /api/groups/participants");
+  const response = await sendWithToken(token, "PATCH", participantPath(groupId, participantId), { isOrganizer });
+  return readAction<ManageError>(response, "PATCH /api/groups/participants");
 }
 
 export async function removeParticipant(token: string, groupId: string, participantId: string): Promise<OrganizerActionResult> {
-  const response = await sendManage(token, "DELETE", participantPath(groupId, participantId));
-  return readManage(response, "DELETE /api/groups/participants");
+  const response = await sendWithToken(token, "DELETE", participantPath(groupId, participantId));
+  return readAction<ManageError>(response, "DELETE /api/groups/participants");
 }
 
 const exclusionsPath = (groupId: string) => `/api/groups/${encodeURIComponent(groupId)}/exclusions`;
@@ -124,29 +126,29 @@ export type AddExclusionResult = OrganizerActionResult | { ok: false; errors: { 
 
 /** Adds an exclusion between two participants; one that exists already changes nothing. */
 export async function addExclusion(token: string, groupId: string, participantIds: [string, string]): Promise<AddExclusionResult> {
-  const response = await sendManage(token, "POST", exclusionsPath(groupId), { participantIds });
+  const response = await sendWithToken(token, "POST", exclusionsPath(groupId), { participantIds });
   if (response.status === 400) {
     const { errors } = (await response.json()) as ExclusionErrorResponse;
     return { ok: false, errors };
   }
-  return readManage(response, "POST /api/groups/exclusions");
+  return readAction<ManageError>(response, "POST /api/groups/exclusions");
 }
 
 export async function removeExclusion(token: string, groupId: string, exclusionId: string): Promise<OrganizerActionResult> {
-  const response = await sendManage(token, "DELETE", `${exclusionsPath(groupId)}/${encodeURIComponent(exclusionId)}`);
-  return readManage(response, "DELETE /api/groups/exclusions");
+  const response = await sendWithToken(token, "DELETE", `${exclusionsPath(groupId)}/${encodeURIComponent(exclusionId)}`);
+  return readAction<ManageError>(response, "DELETE /api/groups/exclusions");
 }
 
 /** Draws the group; refused with too_few or impossible, the group stays open. */
 export async function drawGroup(token: string, groupId: string): Promise<OrganizerActionResult> {
-  const response = await sendManage(token, "POST", `/api/groups/${encodeURIComponent(groupId)}/draw`);
-  return readManage(response, "POST /api/groups/draw");
+  const response = await sendWithToken(token, "POST", `/api/groups/${encodeURIComponent(groupId)}/draw`);
+  return readAction<ManageError>(response, "POST /api/groups/draw");
 }
 
 /** Resets the drawn group: all assignments are gone and it is open again; refused with not_drawn while open. */
 export async function resetGroup(token: string, groupId: string): Promise<OrganizerActionResult> {
-  const response = await sendManage(token, "DELETE", `/api/groups/${encodeURIComponent(groupId)}/draw`);
-  return readManage(response, "DELETE /api/groups/draw");
+  const response = await sendWithToken(token, "DELETE", `/api/groups/${encodeURIComponent(groupId)}/draw`);
+  return readAction<ManageError>(response, "DELETE /api/groups/draw");
 }
 
 export type SaveWishlistResult =
@@ -168,4 +170,30 @@ export async function saveWishlist(token: string, wishlist: string): Promise<Sav
   }
   if (!response.ok) throw new Error(`PUT /api/me/wishlist answered ${response.status}`);
   return { ok: true, me: (await response.json()) as Me };
+}
+
+/** A Swap Request action: the caller's fresh view, or why the server refused it. */
+export type SwapActionResult = { ok: true; me: Me } | { ok: false; error: SwapError };
+
+const swapRequestsPath = "/api/me/swap-requests";
+const swapRequestPath = (requestId: string) => `${swapRequestsPath}/${encodeURIComponent(requestId)}`;
+
+/** Asks another giver for a swap; refused with blocked, outgoing_open, a limit and so on. */
+export async function sendSwapRequest(token: string, receiverId: string): Promise<SwapActionResult> {
+  return readAction<SwapError>(await sendWithToken(token, "POST", swapRequestsPath, { receiverId }), "POST /api/me/swap-requests");
+}
+
+/** The sender takes back their open request. */
+export async function withdrawSwapRequest(token: string, requestId: string): Promise<SwapActionResult> {
+  return readAction<SwapError>(await sendWithToken(token, "DELETE", swapRequestPath(requestId)), "DELETE /api/me/swap-requests");
+}
+
+/** The receiver accepts: the Swap. The fresh view shows their new recipient. */
+export async function acceptSwapRequest(token: string, requestId: string): Promise<SwapActionResult> {
+  return readAction<SwapError>(await sendWithToken(token, "POST", `${swapRequestPath(requestId)}/accept`), "POST /api/me/swap-requests/accept");
+}
+
+/** The receiver declines; nothing is swapped. */
+export async function declineSwapRequest(token: string, requestId: string): Promise<SwapActionResult> {
+  return readAction<SwapError>(await sendWithToken(token, "POST", `${swapRequestPath(requestId)}/decline`), "POST /api/me/swap-requests/decline");
 }

@@ -1,4 +1,4 @@
-import type { ExclusionInputError, JoinNameError, ManageError } from "../shared/api";
+import type { ExclusionInputError, JoinNameError, ManageError, SwapError } from "../shared/api";
 import { MIN_PARTICIPANTS_TO_DRAW } from "../shared/draw";
 import type { GroupField, GroupInputError } from "../shared/group-input";
 import { MAX_BUDGET_EUROS, MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH } from "../shared/group-input";
@@ -51,6 +51,20 @@ export const manageErrorMessages: Record<ManageError, string> = {
   too_few: `Für die Auslosung braucht ihr mindestens ${MIN_PARTICIPANTS_TO_DRAW} Teilnehmer.`,
   impossible:
     "Mit diesen Ausschlüssen kann nicht jeder jemanden beschenken. Heb einen Ausschluss auf oder lade mehr Leute ein, dann klappt die Auslosung.",
+  changed: "Die Gruppe hat sich gerade geändert. Versuch es noch mal.",
+};
+
+/** What to tell a giver whose Swap Request action the server refused, in German. */
+export const swapErrorMessages: Record<SwapError, string> = {
+  unknown_token: "Dieses Gerät ist in der Gruppe nicht mehr angemeldet.",
+  not_drawn: "Die Auslosung wurde zurückgesetzt. Tauschen geht erst nach der nächsten Auslosung.",
+  unknown_participant: "Diese Person ist nicht mehr in der Gruppe.",
+  unknown_swap_request: "Diese Tauschanfrage gibt es nicht mehr. Die Seite zeigt jetzt den aktuellen Stand.",
+  self: "Mit dir selbst kannst du nicht tauschen.",
+  outgoing_open: "Du hast schon eine offene Tauschanfrage. Zieh sie zurück, um eine neue zu senden.",
+  limit_reached: "Du hast dein Tausch-Limit erreicht.",
+  partner_limit_reached: "Diese Person hat ihr Tausch-Limit schon erreicht.",
+  blocked: "Dieser Tausch ist nicht möglich.",
   changed: "Die Gruppe hat sich gerade geändert. Versuch es noch mal.",
 };
 

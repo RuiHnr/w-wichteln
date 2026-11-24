@@ -1,4 +1,4 @@
-import type { ExclusionView, GroupPhase, GroupView, InviteResponse, Me, ParticipantView, RecipientView } from "../../shared/api";
+import type { ExclusionView, GroupPhase, GroupView, InviteResponse, Me, ParticipantView, RecipientView, SwapsView } from "../../shared/api";
 import type { GroupInput } from "../../shared/group-input";
 import { hashToken, newInviteCode, newToken } from "./tokens";
 
@@ -126,6 +126,7 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
   if (row.phase === "drawn") {
     const recipient = await findRecipient(db, row.participant_id);
     if (recipient) me.recipient = recipient;
+    me.swaps = await findSwaps(db, row.participant_id);
   }
   return row.is_organizer === 1 ? { ...me, exclusions: await findExclusions(db, row.group_id) } : me;
 }
@@ -143,6 +144,42 @@ async function findRecipient(db: D1Database, giverId: string): Promise<Recipient
     )
     .bind(giverId)
     .first<RecipientView>();
+}
+
+/**
+ * SQL: how many completed swaps the participant in `column` took part in, sent or accepted:
+ * what counts against the Swap Limit. Declined, withdrawn and expired requests are gone.
+ */
+export const completedSwapsOf = (column: string) =>
+  `(SELECT COUNT(*) FROM swap_requests done WHERE done.status = 'accepted' AND (done.sender_id = ${column} OR done.receiver_id = ${column}))`;
+
+/**
+ * One participant's swaps: the group's Swap Limit, how many they took part in, and their
+ * open requests in both directions. The other side shows by name only (ADR 0003).
+ */
+async function findSwaps(db: D1Database, participantId: string): Promise<SwapsView> {
+  const [counts, requests] = await db.batch([
+    db
+      .prepare(`SELECT g.swap_limit, ${completedSwapsOf("p.id")} AS completed FROM participants p JOIN groups g ON g.id = p.group_id WHERE p.id = ?`)
+      .bind(participantId),
+    db
+      .prepare(
+        `SELECT s.id, s.sender_id = ?1 AS outgoing, other.id AS other_id, other.name AS other_name
+           FROM swap_requests s JOIN participants other
+             ON other.id = CASE WHEN s.sender_id = ?1 THEN s.receiver_id ELSE s.sender_id END
+          WHERE s.status = 'open' AND (s.sender_id = ?1 OR s.receiver_id = ?1)
+          ORDER BY s.created_at, s.rowid`,
+      )
+      .bind(participantId),
+  ]);
+  const { swap_limit, completed } = (counts.results as { swap_limit: number; completed: number }[])[0];
+  const swaps: SwapsView = { limit: swap_limit, completed, incoming: [] };
+  for (const r of requests.results as { id: string; outgoing: number; other_id: string; other_name: string }[]) {
+    const other = { id: r.other_id, name: r.other_name };
+    if (r.outgoing === 1) swaps.outgoing = { id: r.id, receiver: other };
+    else swaps.incoming.push({ id: r.id, sender: other });
+  }
+  return swaps;
 }
 
 async function findExclusions(db: D1Database, groupId: string): Promise<ExclusionView[]> {
