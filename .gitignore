@@ -4,3 +4,7 @@ dist/
 .dev.vars
 .taste-skill/
 shots/
+
+.claude/
+docs/agents
+AGENTS.md
