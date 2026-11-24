@@ -38,6 +38,11 @@ The day the participants of a group hand over their presents.
 _UI_: Datum der Bescherung
 _Avoid_: Event date, deadline
 
+**Expiry**:
+The deletion of a group with everything in it, 60 days after its Exchange Date. Changing the Exchange Date moves the Expiry with it. A link to an expired group shows that the group no longer exists.
+_UI_: "Diese Gruppe gibt es nicht mehr"
+_Avoid_: Archive, retention
+
 **Invite Link**:
 The shared link through which anyone can join a group while it is open.
 _UI_: Einladungslink

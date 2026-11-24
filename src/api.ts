@@ -42,6 +42,20 @@ export async function fetchMe(token: string): Promise<Me | null> {
   return (await response.json()) as Me;
 }
 
+/**
+ * Whether the group still exists: false once it was deleted (or never existed), null when
+ * the server cannot say. Never throws, since it only refines an error page.
+ */
+export async function groupStillExists(groupId: string): Promise<boolean | null> {
+  try {
+    const response = await fetch(`/api/groups/${encodeURIComponent(groupId)}`);
+    if (response.ok) return true;
+    return response.status === 404 ? false : null;
+  } catch {
+    return null;
+  }
+}
+
 /** What an Invite Link leads to, or null when the invite code is unknown. */
 export async function fetchInvite(inviteCode: string): Promise<InviteResponse | null> {
   const response = await fetch(`/api/invites/${encodeURIComponent(inviteCode)}`);

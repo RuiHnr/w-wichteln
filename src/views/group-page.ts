@@ -140,6 +140,16 @@ function restoreFocus(main: HTMLElement, after: AfterAction): void {
   setTimeout(() => (status.textContent = after.status), 50);
 }
 
+/** Shown for a link to a group that was deleted (60 days after its date) or never existed. */
+export function renderGroupGone(main: HTMLElement): void {
+  showMessage(
+    main,
+    "Diese Gruppe gibt es nicht mehr",
+    "Gruppen werden 60 Tage nach der Bescherung gelöscht, mit allem, was dazugehört. Falls du die Gruppe noch brauchst, prüf, ob der Link vollständig ist.",
+    { href: "/", label: "Neue Gruppe anlegen" },
+  );
+}
+
 /** Shown when this browser has no (valid) token for the group in the address bar. */
 export function renderNotRecognised(main: HTMLElement): void {
   showMessage(
