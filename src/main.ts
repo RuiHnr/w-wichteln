@@ -42,9 +42,27 @@ async function showGroup(groupId: string): Promise<void> {
   }
 }
 
-const showLoading = (text: string) => (main.innerHTML = `<p class="view__lead" role="status">${text}</p>`);
-const showOffline = () =>
-  showMessage(main, "Die Gruppe lässt sich gerade nicht laden", "Prüf deine Verbindung und lad die Seite neu.");
+/** A calm wait: the line says what is loading, three fairy lights twinkle in turn while it does. */
+function showLoading(text: string): void {
+  // a pressed button (the retry) is about to vanish: park the focus on <main> so the next view still moves it to its heading
+  const focusWasInside = main.contains(document.activeElement);
+  main.innerHTML = `<section class="view loading" role="status">
+    <p class="loading__text">${text}</p>
+    <span class="loading__lights" aria-hidden="true"><i></i><i></i><i></i></span>
+  </section>`;
+  if (focusWasInside) main.focus();
+}
+
+/** The server cannot be reached: say so and offer the retry right there, instead of only asking for a reload. */
+function showOffline(): void {
+  showMessage(main, "Die Gruppe lässt sich gerade nicht laden", "Prüf deine Verbindung und versuch es noch mal.");
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.className = "btn btn--primary";
+  retry.textContent = "Erneut versuchen";
+  retry.addEventListener("click", route);
+  main.querySelector(".view")?.append(retry);
+}
 
 /** Remembers the participant on this device and shows their group page under its own address. */
 function enterGroup({ token, me }: CreateGroupResponse, navigate: "push" | "replace"): void {
