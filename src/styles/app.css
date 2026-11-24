@@ -257,6 +257,47 @@ html {
   font-size: var(--text-sm);
 }
 
+/* A checkbox with its label, the whole row a 44px target */
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.check__input {
+  flex: none;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin: 0;
+  accent-color: var(--p-accent);
+  cursor: pointer;
+}
+
+.check__input:focus-visible {
+  outline: 2px solid var(--p-accent-soft);
+  outline-offset: 3px;
+}
+
+.check__input[aria-invalid="true"] {
+  outline: 2px solid var(--p-danger);
+  outline-offset: 3px;
+}
+
+/* Notice at the top of the group page until the Personal Link is saved: lit like a fairy light */
+.link-notice {
+  border-color: color-mix(in srgb, var(--p-accent) 55%, transparent);
+  box-shadow: var(--glow-soft);
+}
+
+.link-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 /* Participants: one name a row */
 .panel__count {
   margin-left: var(--space-2);

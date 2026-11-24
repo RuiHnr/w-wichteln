@@ -1,5 +1,6 @@
 import type { Me } from "../../shared/api";
 import { escapeHtml, showMessage, showView } from "../html";
+import { createLinkNoticeStore } from "../link-notice";
 import { inviteLink, personalLink } from "../links";
 import type { RevealState } from "../reveal";
 import { createRevealStore, initialRevealState, prefersReducedMotion } from "../reveal";
@@ -7,7 +8,9 @@ import { drawPanel, resetPanel } from "./draw-panel";
 import { wireGiftReveal } from "./gift-reveal";
 import { groupFacts, phaseLabel } from "./group-facts";
 import type { AfterAction } from "./page-actions";
+import { linkRow, wireLinkRows } from "./link-row";
 import { exclusionsPanel, participantActions, settingsPanel, swapLimitPanel, wireManage } from "./manage-group";
+import { linkNotice, wireLinkNotice } from "./save-link";
 import { swapPanel, wireSwaps } from "./swap-panel";
 import { wireWishlist, wishlistPanel } from "./wishlist-panel";
 
@@ -28,17 +31,7 @@ function participantList(me: Me): string {
     </section>`;
 }
 
-function linkRow(id: string, buttonLabel: string, copiedMessage: string, url: string): string {
-  return `
-    <div class="link-row">
-      <input class="field__input link-row__url" id="${id}" type="text" readonly value="${escapeHtml(url)}"
-        aria-labelledby="${id}-heading" />
-      <button class="btn btn--secondary link-row__copy" type="button" data-copy="${id}"
-        data-copied="${copiedMessage}" aria-label="${buttonLabel}">Kopieren</button>
-    </div>`;
-}
-
-function markup(me: Me, token: string, reveal: RevealState, rerender: boolean): string {
+function markup(me: Me, token: string, reveal: RevealState, rerender: boolean, showLinkNotice: boolean): string {
   const { group, participant } = me;
   const role = participant.isOrganizer ? "Organisator" : "Teilnehmer";
   return `
@@ -48,6 +41,8 @@ function markup(me: Me, token: string, reveal: RevealState, rerender: boolean): 
         <h1 class="view__title" tabindex="-1">${escapeHtml(group.name)}</h1>
         ${groupFacts(group, `<div class="facts__item"><dt>Du</dt><dd>${escapeHtml(participant.name)} · ${role}</dd></div>`)}
       </header>
+
+      ${showLinkNotice ? linkNotice() : ""}
 
       ${group.phase === "drawn" ? drawPanel(me, reveal) : ""}
 
@@ -69,28 +64,30 @@ function markup(me: Me, token: string, reveal: RevealState, rerender: boolean): 
       <section class="panel stack" aria-labelledby="invite-link-heading">
         <h2 class="panel__title" id="invite-link-heading">Einladungslink</h2>
         <p class="panel__text">Schick diesen Link an alle, die mitwichteln sollen.</p>
-        ${linkRow("invite-link", "Einladungslink kopieren", "Einladungslink kopiert.", inviteLink(group.inviteCode))}
+        ${linkRow({
+          id: "invite-link",
+          url: inviteLink(group.inviteCode),
+          copyLabel: "Einladungslink kopieren",
+          copiedMessage: "Einladungslink kopiert.",
+        })}
       </section>` : ""}
 
       <section class="panel stack" aria-labelledby="personal-link-heading">
         <h2 class="panel__title" id="personal-link-heading">Persönlicher Link</h2>
-        <p class="panel__text">Mit diesem Link kommst du auf jedem Gerät zurück in die Gruppe.</p>
-        ${linkRow("personal-link", "Persönlichen Link kopieren", "Persönlicher Link kopiert.", personalLink(token))}
+        <p class="panel__text">Nur mit diesem Link kommst du zurück in die Gruppe: auf einem anderen Gerät oder wenn deine Browserdaten gelöscht sind. Speicher ihn dir gut.</p>
+        ${linkRow({
+          id: "personal-link",
+          url: personalLink(token),
+          copyLabel: "Persönlichen Link kopieren",
+          copiedMessage: "Persönlicher Link kopiert.",
+          shareTitle: `Mein Link für ${group.name}`,
+          shareLabel: "Persönlichen Link teilen",
+        })}
         <p class="note">Behalte diesen Link für dich. Wer ihn hat, macht in deinem Namen mit und sieht später, wen du beschenkst.</p>
       </section>
 
       <p class="visually-hidden" role="status" data-copy-status></p>
     </section>`;
-}
-
-async function copyText(input: HTMLInputElement): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(input.value);
-    return true;
-  } catch {
-    input.select();
-    return document.execCommand("copy");
-  }
 }
 
 /**
@@ -99,34 +96,22 @@ async function copyText(input: HTMLInputElement): Promise<boolean> {
  */
 export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?: AfterAction): void {
   const reveals = createRevealStore(localStorage);
+  const linkNotices = createLinkNoticeStore(localStorage);
   const { group, recipient } = me;
   const reveal = initialRevealState({
     unwrappedBefore: recipient ? reveals.hasUnwrapped(group.id, recipient.id) : true,
     reducedMotion: prefersReducedMotion(),
   });
   // after an organizer action the page is re-rendered in place, so it does not enter again
-  showView(main, markup(me, token, reveal, after !== undefined));
+  showView(main, markup(me, token, reveal, after !== undefined, !linkNotices.isDismissed(group.id)));
   if (after) restoreFocus(main, after);
   const rerender = (fresh: Me, next: AfterAction) => renderGroupPage(main, fresh, token, next);
   if (recipient) wireGiftReveal(main, () => reveals.rememberUnwrapped(group.id, recipient.id));
   wireWishlist(main, token, rerender, () => renderNotRecognised(main));
   wireSwaps(main, me, token, rerender, () => renderNotRecognised(main));
   if (me.participant.isOrganizer) wireManage(main, me, token, rerender, () => renderNotRecognised(main));
-  const status = main.querySelector<HTMLElement>("[data-copy-status]")!;
-
-  for (const button of main.querySelectorAll<HTMLButtonElement>("[data-copy]")) {
-    let reset: ReturnType<typeof setTimeout> | undefined;
-    button.addEventListener("click", async () => {
-      const input = main.querySelector<HTMLInputElement>(`#${button.dataset.copy}`)!;
-      const copied = await copyText(input);
-      clearTimeout(reset);
-      button.textContent = copied ? "Kopiert" : "Kopieren";
-      status.textContent = copied
-        ? button.dataset.copied!
-        : "Kopieren hat nicht geklappt. Markier den Link und kopier ihn selbst.";
-      reset = setTimeout(() => (button.textContent = "Kopieren"), 2000);
-    });
-  }
+  wireLinkRows(main, main.querySelector<HTMLElement>("[data-copy-status]")!);
+  wireLinkNotice(main, () => linkNotices.dismiss(group.id));
 }
 
 /** Puts focus back near the control that was used and announces the outcome there. */

@@ -12,6 +12,7 @@ import { startSnowfall } from "./snowfall";
 import { renderCreateGroup } from "./views/create-group";
 import { renderGroupGone, renderGroupPage, renderNotRecognised } from "./views/group-page";
 import { renderJoinClosed, renderJoinGroup } from "./views/join-group";
+import { renderSaveLink } from "./views/save-link";
 
 const canvas = document.querySelector<HTMLCanvasElement>(".snowfall");
 if (canvas) startSnowfall(canvas);
@@ -64,10 +65,14 @@ function showOffline(): void {
   main.querySelector(".view")?.append(retry);
 }
 
-/** Remembers the participant on this device and shows their group page under its own address. */
-function enterGroup({ token, me }: CreateGroupResponse, navigate: "push" | "replace"): void {
+/**
+ * Remembers the participant on this device and shows their group page under its own address.
+ * Someone who just created or joined the group saves their Personal Link first.
+ */
+function enterGroup({ token, me }: CreateGroupResponse, navigate: "push" | "replace", justArrived = false): void {
   identity.remember(me.group.id, token);
   history[navigate === "push" ? "pushState" : "replaceState"](null, "", groupPath(me.group.id));
+  if (justArrived) return renderSaveLink(main, me.group.name, token, () => renderGroupPage(main, me, token));
   renderGroupPage(main, me, token);
 }
 
@@ -86,7 +91,7 @@ async function showJoin(inviteCode: string): Promise<void> {
     if (token) identity.forget(invite.group.id);
 
     if (invite.group.phase !== "open") return renderJoinClosed(main);
-    renderJoinGroup(main, inviteCode, invite, (joined) => enterGroup(joined, "push"));
+    renderJoinGroup(main, inviteCode, invite, (joined) => enterGroup(joined, "push", true));
   } catch {
     showOffline();
   }
@@ -122,7 +127,7 @@ function route(): void {
   const personal = segment("p");
 
   if (path === "/") {
-    renderCreateGroup(main, (created) => enterGroup(created, "push"));
+    renderCreateGroup(main, (created) => enterGroup(created, "push", true));
   } else if (group) {
     void showGroup(decodeURIComponent(group));
   } else if (invite) {
