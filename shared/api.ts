@@ -1,6 +1,6 @@
 /** Shapes the API sends to the browser. */
 
-import type { GroupInputErrors } from "./group-input";
+import type { GroupInputErrors, ParticipantNameError } from "./group-input";
 
 export type GroupPhase = "open" | "drawn";
 
@@ -20,10 +20,17 @@ export interface ParticipantView {
   isOrganizer: boolean;
 }
 
-/** The caller as the API knows them: their group and themselves. */
+/** 200 from GET /api/invites/:code: what someone is about to join. No participants, no invite code. */
+export interface InviteResponse {
+  group: Omit<GroupView, "inviteCode">;
+}
+
+/** The caller as the API knows them: their group, themselves and everyone in the group. */
 export interface Me {
   group: GroupView;
   participant: ParticipantView;
+  /** Everyone in the caller's group, in the order they joined. */
+  participants: ParticipantView[];
 }
 
 /** 201 from POST /api/groups. */
@@ -35,4 +42,9 @@ export interface CreateGroupResponse {
 /** 400 from POST /api/groups: one error code per invalid field. */
 export interface ValidationErrorResponse {
   errors: GroupInputErrors;
+}
+
+/** 400 or 409 from POST /api/invites/:code/participants when the name cannot be used. */
+export interface JoinErrorResponse {
+  errors: { name: ParticipantNameError | "taken" };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateGroupInput } from "./group-input";
+import { validateGroupInput, validateParticipantName } from "./group-input";
 
 const today = "2026-11-24";
 const valid = { name: "WG Weihnachten", budget: "20", exchangeDate: "2026-12-20", organizerName: "Lea" };
@@ -65,5 +65,18 @@ describe("validateGroupInput", () => {
     };
     expect(validateGroupInput(null, today)).toEqual(everyFieldRequired);
     expect(validateGroupInput({ name: 5, budget: [], exchangeDate: {}, organizerName: true }, today)).toEqual(everyFieldRequired);
+  });
+});
+
+describe("validateParticipantName", () => {
+  it("trims the name and accepts up to 40 characters", () => {
+    expect(validateParticipantName("  Max ")).toEqual({ ok: true, value: "Max" });
+    expect(validateParticipantName("y".repeat(40)).ok).toBe(true);
+  });
+
+  it("rejects an empty, missing or too long name", () => {
+    expect(validateParticipantName(" ")).toEqual({ ok: false, error: "required" });
+    expect(validateParticipantName(undefined)).toEqual({ ok: false, error: "required" });
+    expect(validateParticipantName("y".repeat(41))).toEqual({ ok: false, error: "tooLong" });
   });
 });

@@ -1,4 +1,4 @@
-import type { CreateGroupResponse, Me, ValidationErrorResponse } from "../shared/api";
+import type { CreateGroupResponse, InviteResponse, JoinErrorResponse, Me, ValidationErrorResponse } from "../shared/api";
 import type { GroupInputErrors, RawGroupInput } from "../shared/group-input";
 
 export type CreateGroupResult = { ok: true; created: CreateGroupResponse } | { ok: false; errors: GroupInputErrors };
@@ -24,4 +24,32 @@ export async function fetchMe(token: string): Promise<Me | null> {
   if (response.status === 401) return null;
   if (!response.ok) throw new Error(`GET /api/me answered ${response.status}`);
   return (await response.json()) as Me;
+}
+
+/** What an Invite Link leads to, or null when the invite code is unknown. */
+export async function fetchInvite(inviteCode: string): Promise<InviteResponse | null> {
+  const response = await fetch(`/api/invites/${encodeURIComponent(inviteCode)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`GET /api/invites answered ${response.status}`);
+  return (await response.json()) as InviteResponse;
+}
+
+export type JoinGroupResult =
+  | { ok: true; joined: CreateGroupResponse }
+  | { ok: false; nameError: JoinErrorResponse["errors"]["name"] }
+  | { ok: false; closed: true };
+
+/** Throws when the server cannot be reached, fails or the invite code is unknown. */
+export async function joinGroup(inviteCode: string, name: string): Promise<JoinGroupResult> {
+  const response = await fetch(`/api/invites/${encodeURIComponent(inviteCode)}/participants`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (response.status === 400 || response.status === 409) {
+    const body = (await response.json()) as Partial<JoinErrorResponse>;
+    return body.errors ? { ok: false, nameError: body.errors.name } : { ok: false, closed: true };
+  }
+  if (!response.ok) throw new Error(`POST /api/invites/participants answered ${response.status}`);
+  return { ok: true, joined: (await response.json()) as CreateGroupResponse };
 }

@@ -23,6 +23,11 @@ export async function createTestEnv(): Promise<{ env: Env; dispose: () => Promis
 }
 
 /** Runs a Pages Function the way the Pages runtime would, with only what our handlers use. */
-export function call<E>(handler: PagesFunction<E>, request: Request, env: E): Promise<Response> {
-  return Promise.resolve(handler({ request, env } as Parameters<PagesFunction<E>>[0]));
+export function call<E>(
+  handler: PagesFunction<E, string>,
+  request: Request,
+  env: E,
+  params: Record<string, string> = {},
+): Promise<Response> {
+  return Promise.resolve(handler({ request, env, params } as Parameters<PagesFunction<E, string>>[0]));
 }

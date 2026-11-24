@@ -24,6 +24,12 @@ export const fieldErrorMessages: Record<GroupField, Partial<Record<GroupInputErr
   },
 };
 
+/** What to tell someone whose name cannot be used to join, in German. */
+export function joinNameErrorMessage(error: "required" | "tooLong" | "taken"): string {
+  if (error === "taken") return "Diesen Namen gibt es in der Gruppe schon. Häng zum Beispiel deinen Nachnamen an.";
+  return fieldErrorMessages.organizerName[error]!;
+}
+
 export function fieldErrorMessage(field: GroupField, error: GroupInputError): string {
   return fieldErrorMessages[field][error] ?? "Prüf deine Eingabe.";
 }

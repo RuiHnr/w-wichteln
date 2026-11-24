@@ -1,4 +1,4 @@
-/** Where the app's pages live. Joining and restoring are handled from #3 on. */
+/** Where the app's pages live. */
 
 export const groupPath = (groupId: string) => `/g/${encodeURIComponent(groupId)}`;
 
