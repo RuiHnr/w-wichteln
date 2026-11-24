@@ -4,6 +4,5 @@
 
 CREATE TABLE wishlists (
   participant_id TEXT PRIMARY KEY REFERENCES participants (id) ON DELETE CASCADE,
-  text TEXT NOT NULL,
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  text TEXT NOT NULL
 );

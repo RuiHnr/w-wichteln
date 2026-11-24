@@ -2,8 +2,8 @@ import type { Me, RecipientView } from "../../shared/api";
 import { MAX_WISHLIST_LENGTH, validateWishlist } from "../../shared/wishlist";
 import { saveWishlist } from "../api";
 import { escapeHtml } from "../html";
-import { wishlistErrorMessages, wishlistLengthHint } from "../messages";
-import type { AfterAction } from "./manage-group";
+import { NETWORK_ERROR, wishlistErrorMessages, wishlistLengthHint } from "../messages";
+import type { Rerender } from "./manage-group";
 
 /**
  * The Wishlist on the group page: everyone writes their own, in either phase, and after the
@@ -50,7 +50,7 @@ export function recipientWishlist(recipient: RecipientView): string {
 export function wireWishlist(
   main: HTMLElement,
   token: string,
-  rerender: (me: Me, after: AfterAction) => void,
+  rerender: Rerender,
   onUnrecognised: () => void,
 ): void {
   const form = main.querySelector<HTMLFormElement>("[data-wishlist]");
@@ -77,6 +77,7 @@ export function wireWishlist(
     const checked = validateWishlist(textarea.value);
     if (!checked.ok) return showError(wishlistErrorMessages[checked.error]);
     showError("");
+    status.textContent = "";
     busy = true;
     try {
       const result = await saveWishlist(token, checked.value);
@@ -86,7 +87,7 @@ export function wireWishlist(
       } else if ("error" in result) onUnrecognised();
       else showError(wishlistErrorMessages[result.errors.wishlist]);
     } catch {
-      status.textContent = "Das hat nicht geklappt. Prüf deine Verbindung und versuch es noch mal.";
+      status.textContent = NETWORK_ERROR;
     } finally {
       busy = false;
     }

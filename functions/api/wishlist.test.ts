@@ -133,6 +133,21 @@ describe("only the giver sees a wishlist", () => {
     }
   });
 
+  it("reveals no one else's wishlist in the answers to joining and drawing", async () => {
+    const lea = await newGroup();
+    await writeWishlist(lea.token, { wishlist: "geheim-Lea" });
+    const max = await joinAs(lea.me.group.inviteCode, "Max");
+    await writeWishlist(max.token, { wishlist: "geheim-Max" });
+    const ina = await joinAs(lea.me.group.inviteCode, "Ina");
+    expect(JSON.stringify(ina)).not.toContain("geheim");
+
+    const drawn = await draw(lea.token, lea.me.group.id);
+
+    const recipientName = drawn.participants.find((p) => p.id === drawn.recipient!.id)!.name;
+    const seen = JSON.stringify(drawn).match(/geheim-\w+/g) ?? [];
+    expect(seen.sort()).toEqual(["geheim-Lea", ...(recipientName === "Max" ? ["geheim-Max"] : [])].sort());
+  });
+
   it("shows no wishlist of anyone before the draw", async () => {
     const lea = await newGroup();
     const max = await joinAs(lea.me.group.inviteCode, "Max");

@@ -20,9 +20,9 @@ describe("budgetInputValue", () => {
 });
 
 describe("wishlistLengthHint", () => {
-  it("counts down from the maximum, ignoring surrounding spaces as the server does", () => {
+  it("counts down from the maximum like the field's maxlength, spaces included", () => {
     expect(wishlistLengthHint("")).toBe("Noch 1000 Zeichen frei.");
-    expect(wishlistLengthHint("  Tee  ")).toBe("Noch 997 Zeichen frei.");
+    expect(wishlistLengthHint("  Tee  ")).toBe("Noch 993 Zeichen frei.");
     expect(wishlistLengthHint("a".repeat(999))).toBe("Noch 1 Zeichen frei.");
   });
 
@@ -31,5 +31,6 @@ describe("wishlistLengthHint", () => {
     expect(wishlistLengthHint(longest)).toBe("Noch 0 Zeichen frei.");
     expect(validateWishlist(longest).ok).toBe(true);
     expect(validateWishlist(`${longest}a`)).toEqual({ ok: false, error: "tooLong" });
+    expect(validateWishlist(`  ${longest}\n`).ok).toBe(true);
   });
 });

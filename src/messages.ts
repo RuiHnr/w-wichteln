@@ -60,15 +60,21 @@ export const exclusionErrorMessages: Record<ExclusionInputError, string> = {
   invalid: "Wähl zwei Teilnehmer aus der Liste.",
 };
 
+/** What to tell someone when the server cannot be reached or fails, in German. */
+export const NETWORK_ERROR = "Das hat nicht geklappt. Prüf deine Verbindung und versuch es noch mal.";
+
 /** What to tell someone whose wishlist cannot be saved, in German. */
 export const wishlistErrorMessages: Record<WishlistError, string> = {
   tooLong: `Dein Wunschzettel darf höchstens ${MAX_WISHLIST_LENGTH} Zeichen lang sein. Kürz ihn ein wenig.`,
   invalid: "Dein Wunschzettel ließ sich nicht lesen. Lade die Seite neu und versuch es noch mal.",
 };
 
-/** How many characters are left for the wishlist, counted as the server counts them. */
+/**
+ * How many characters are left in the wishlist field, counted as its maxlength counts them.
+ * The server trims first, so it never refuses what the field let through.
+ */
 export function wishlistLengthHint(text: string): string {
-  const left = Math.max(0, MAX_WISHLIST_LENGTH - text.trim().length);
+  const left = Math.max(0, MAX_WISHLIST_LENGTH - text.length);
   return left === 1 ? "Noch 1 Zeichen frei." : `Noch ${left} Zeichen frei.`;
 }
 
