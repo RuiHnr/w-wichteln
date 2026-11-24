@@ -43,6 +43,7 @@ describe("POST /api/groups", () => {
         inviteCode: expect.any(String),
       },
       participant: { id: expect.any(String), name: "Lea", isOrganizer: true },
+      wishlist: "",
       participants: [{ id: expect.any(String), name: "Lea", isOrganizer: true }],
       exclusions: [],
     };

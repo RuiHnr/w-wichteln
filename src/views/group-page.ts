@@ -5,6 +5,7 @@ import { drawPanel, resetPanel } from "./draw-panel";
 import { groupFacts, phaseLabel } from "./group-facts";
 import type { AfterAction } from "./manage-group";
 import { exclusionsPanel, participantActions, settingsPanel, wireManage } from "./manage-group";
+import { wireWishlist, wishlistPanel } from "./wishlist-panel";
 
 function participantList(me: Me): string {
   const items = me.participants
@@ -45,6 +46,8 @@ function markup(me: Me, token: string): string {
       </header>
 
       ${group.phase === "drawn" ? drawPanel(me) : ""}
+
+      ${wishlistPanel(me)}
 
       ${participantList(me)}
 
@@ -89,9 +92,9 @@ async function copyText(input: HTMLInputElement): Promise<boolean> {
 export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?: AfterAction): void {
   showView(main, markup(me, token));
   if (after) restoreFocus(main, after);
-  if (me.participant.isOrganizer) {
-    wireManage(main, me, token, (fresh, next) => renderGroupPage(main, fresh, token, next), () => renderNotRecognised(main));
-  }
+  const rerender = (fresh: Me, next: AfterAction) => renderGroupPage(main, fresh, token, next);
+  wireWishlist(main, token, rerender, () => renderNotRecognised(main));
+  if (me.participant.isOrganizer) wireManage(main, me, token, rerender, () => renderNotRecognised(main));
   const status = main.querySelector<HTMLElement>("[data-copy-status]")!;
 
   for (const button of main.querySelectorAll<HTMLButtonElement>("[data-copy]")) {

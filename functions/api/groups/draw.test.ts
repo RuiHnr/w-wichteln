@@ -86,8 +86,8 @@ describe("nobody sees all assignments (ADR 0003)", () => {
 
     const drawn = await (await draw(lea.token, groupId)).json<Me>();
 
-    expect(Object.keys(drawn).sort()).toEqual(["exclusions", "group", "participant", "participants", "recipient"]);
-    expect(Object.keys(drawn.recipient!).sort()).toEqual(["id", "name"]);
+    expect(Object.keys(drawn).sort()).toEqual(["exclusions", "group", "participant", "participants", "recipient", "wishlist"]);
+    expect(Object.keys(drawn.recipient!).sort()).toEqual(["id", "name", "wishlist"]);
     for (const { token } of everyone) {
       const me = await meWith(token);
       expect(me.participants.every((p) => Object.keys(p).sort().join() === "id,isOrganizer,name")).toBe(true);

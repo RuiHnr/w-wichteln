@@ -31,7 +31,7 @@ export async function createGroup(db: D1Database, input: GroupInput): Promise<{ 
   ]);
 
   const organizer: ParticipantView = { id: participantId, name: input.organizerName, isOrganizer: true };
-  return { token, me: { ...toMe(row, [organizer]), exclusions: [] } };
+  return { token, me: { ...toMe(row, "", [organizer]), exclusions: [] } };
 }
 
 /** The public facts of the group behind an invite code; null for an unknown code. */
@@ -95,6 +95,10 @@ interface MeRow extends GroupRow {
   is_organizer: number;
 }
 
+/** SQL: the wishlist of the participant with the given id column, or '' when they wrote none. */
+const wishlistOf = (participantId: string) =>
+  `COALESCE((SELECT w.text FROM wishlists w WHERE w.participant_id = ${participantId}), '')`;
+
 /**
  * The participant a token belongs to, with their group; null for an unknown token.
  * Organizers also get the group's exclusions; nobody else sees them.
@@ -103,12 +107,12 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
   const row = await db
     .prepare(
       `SELECT g.id AS group_id, g.name AS group_name, g.budget_cents, g.exchange_date, g.phase, g.invite_code,
-              p.id AS participant_id, p.name AS participant_name, p.is_organizer
+              p.id AS participant_id, p.name AS participant_name, p.is_organizer, ${wishlistOf("p.id")} AS wishlist
          FROM participants p JOIN groups g ON g.id = p.group_id
         WHERE p.token_hash = ?`,
     )
     .bind(await hashToken(token))
-    .first<MeRow>();
+    .first<MeRow & { wishlist: string }>();
   if (!row) return null;
   const { results } = await db
     .prepare("SELECT id, name, is_organizer FROM participants WHERE group_id = ? ORDER BY created_at, rowid")
@@ -116,6 +120,7 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
     .all<{ id: string; name: string; is_organizer: number }>();
   const me = toMe(
     row,
+    row.wishlist,
     results.map((p) => ({ id: p.id, name: p.name, isOrganizer: p.is_organizer === 1 })),
   );
   if (row.phase === "drawn") {
@@ -125,10 +130,17 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
   return row.is_organizer === 1 ? { ...me, exclusions: await findExclusions(db, row.group_id) } : me;
 }
 
-/** The recipient of one giver's assignment: the only assignment the API ever reads (ADR 0003). */
+/**
+ * The recipient of one giver's assignment, with their wishlist: the only assignment the API
+ * ever reads (ADR 0003), and the only wishlist besides the caller's own.
+ */
 async function findRecipient(db: D1Database, giverId: string): Promise<RecipientView | null> {
   return db
-    .prepare("SELECT p.id, p.name FROM assignments a JOIN participants p ON p.id = a.recipient_id WHERE a.giver_id = ?")
+    .prepare(
+      `SELECT p.id, p.name, ${wishlistOf("p.id")} AS wishlist
+         FROM assignments a JOIN participants p ON p.id = a.recipient_id
+        WHERE a.giver_id = ?`,
+    )
     .bind(giverId)
     .first<RecipientView>();
 }
@@ -152,10 +164,29 @@ function toGroupView(row: GroupRow): GroupView {
   };
 }
 
-function toMe(row: MeRow, participants: ParticipantView[]): Me {
+function toMe(row: MeRow, wishlist: string, participants: ParticipantView[]): Me {
   return {
     group: toGroupView(row),
     participant: { id: row.participant_id, name: row.participant_name, isOrganizer: row.is_organizer === 1 },
+    wishlist,
     participants,
   };
+}
+
+/** Replaces the caller's own wishlist; an empty one is removed. Null for an unknown token. */
+export async function saveWishlist(db: D1Database, token: string, wishlist: string): Promise<Me | null> {
+  const tokenHash = await hashToken(token);
+  const statement = wishlist
+    ? db
+        .prepare(
+          `INSERT INTO wishlists (participant_id, text)
+           SELECT id, ? FROM participants WHERE token_hash = ?
+           ON CONFLICT (participant_id) DO UPDATE SET text = excluded.text, updated_at = excluded.updated_at`,
+        )
+        .bind(wishlist, tokenHash)
+    : db
+        .prepare("DELETE FROM wishlists WHERE participant_id = (SELECT id FROM participants WHERE token_hash = ?)")
+        .bind(tokenHash);
+  await statement.run();
+  return findMe(db, token);
 }
