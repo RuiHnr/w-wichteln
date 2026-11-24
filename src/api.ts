@@ -134,3 +134,9 @@ export async function removeExclusion(token: string, groupId: string, exclusionI
   const response = await sendManage(token, "DELETE", `${exclusionsPath(groupId)}/${encodeURIComponent(exclusionId)}`);
   return readManage(response, "DELETE /api/groups/exclusions");
 }
+
+/** Draws the group; refused with too_few or impossible, the group stays open. */
+export async function drawGroup(token: string, groupId: string): Promise<OrganizerActionResult> {
+  const response = await sendManage(token, "POST", `/api/groups/${encodeURIComponent(groupId)}/draw`);
+  return readManage(response, "POST /api/groups/draw");
+}

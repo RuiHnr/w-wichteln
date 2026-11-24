@@ -2,14 +2,14 @@ import type { ExclusionView, ManageError, Me, ParticipantView } from "../../shar
 import type { GroupSettingsErrors, GroupSettingsField } from "../../shared/group-input";
 import { validateGroupSettings } from "../../shared/group-input";
 import type { OrganizerActionResult } from "../api";
-import { addExclusion, fetchMe, removeExclusion, removeParticipant, setOrganizer, updateSettings } from "../api";
+import { addExclusion, drawGroup, fetchMe, removeExclusion, removeParticipant, setOrganizer, updateSettings } from "../api";
 import { escapeHtml } from "../html";
 import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErrorMessages } from "../messages";
 import { localToday } from "../today";
 
 /**
- * The organizer's controls on the group page: budget and date, per participant the
- * Organizer role and removal, and the exclusions. Only rendered for organizers; the API
+ * The organizer's controls on the group page: the draw, budget and date, per participant
+ * the Organizer role and removal, and the exclusions. Only rendered for organizers; the API
  * enforces the same rules.
  */
 
@@ -149,6 +149,34 @@ function actionButton(action: Action, p: ParticipantView, label: string, ariaLab
     data-focus="${action}-${escapeHtml(p.id)}" aria-label="${ariaLabel}"${confirm ? ` data-confirm="${confirm}"` : ""}>${label}</button>`;
 }
 
+/**
+ * With `data-confirm`, the first press arms the button and says so in `status`; only a second
+ * press within 5 seconds calls `act`. Without it, every press acts.
+ */
+function onConfirmedClick(button: HTMLButtonElement, status: HTMLElement, act: () => void): void {
+  const label = button.textContent!;
+  let disarm: ReturnType<typeof setTimeout> | undefined;
+
+  const reset = () => {
+    clearTimeout(disarm);
+    delete button.dataset.armed;
+    button.textContent = label;
+  };
+  button.addEventListener("blur", reset);
+
+  button.addEventListener("click", () => {
+    if (button.dataset.confirm && !button.dataset.armed) {
+      button.dataset.armed = "true";
+      button.textContent = button.dataset.confirm;
+      status.textContent = `${button.getAttribute("aria-label")}? Zum Bestätigen noch einmal tippen.`;
+      disarm = setTimeout(reset, 5000);
+      return;
+    }
+    reset();
+    act();
+  });
+}
+
 function successMessage(action: Action, p: ParticipantView, me: Me): string {
   const isSelf = p.id === me.participant.id;
   if (action === "remove") return `${p.name} ist nicht mehr in der Gruppe.`;
@@ -201,25 +229,8 @@ export function wireManage(
   for (const button of main.querySelectorAll<HTMLButtonElement>("[data-action]")) {
     const action = button.dataset.action as Action;
     const target = me.participants.find((p) => p.id === button.dataset.id)!;
-    const label = button.textContent!;
-    let disarm: ReturnType<typeof setTimeout> | undefined;
 
-    const reset = () => {
-      clearTimeout(disarm);
-      delete button.dataset.armed;
-      button.textContent = label;
-    };
-    button.addEventListener("blur", reset);
-
-    button.addEventListener("click", () => {
-      if (button.dataset.confirm && !button.dataset.armed) {
-        button.dataset.armed = "true";
-        button.textContent = button.dataset.confirm;
-        peopleStatus.textContent = `${button.getAttribute("aria-label")}? Zum Bestätigen noch einmal tippen.`;
-        disarm = setTimeout(reset, 5000);
-        return;
-      }
-      reset();
+    onConfirmedClick(button, peopleStatus, () => {
       const request =
         action === "remove"
           ? () => removeParticipant(token, me.group.id, target.id)
@@ -227,6 +238,16 @@ export function wireManage(
       // After a role change the row keeps a button for the opposite action; focus that one.
       const opposite = action === "grant" ? "revoke" : action === "revoke" ? "grant" : undefined;
       void run(request, peopleStatus, (fresh) => successMessage(action, target, fresh), opposite && `${opposite}-${target.id}`);
+    });
+  }
+
+  const drawButton = main.querySelector<HTMLButtonElement>("[data-draw]");
+  if (drawButton) {
+    const drawStatus = main.querySelector<HTMLElement>("[data-draw-status]")!;
+    // After the draw the button is gone and its panel shows the recipient; focus goes to that panel's heading.
+    const success = () => "Ausgelost. Die Anmeldung ist jetzt geschlossen.";
+    onConfirmedClick(drawButton, drawStatus, () => {
+      void run(() => drawGroup(token, me.group.id), drawStatus, success, "draw-start", undefined, "draw");
     });
   }
 

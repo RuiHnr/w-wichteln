@@ -1,4 +1,5 @@
 import type { ExclusionInputError, JoinNameError, ManageError } from "../shared/api";
+import { MIN_PARTICIPANTS_TO_DRAW } from "../shared/draw";
 import type { GroupField, GroupInputError } from "../shared/group-input";
 import { MAX_BUDGET_EUROS, MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH } from "../shared/group-input";
 
@@ -44,6 +45,9 @@ export const manageErrorMessages: Record<ManageError, string> = {
   drawn: "Die Gruppe ist schon ausgelost. Das lässt sich jetzt nicht mehr ändern.",
   last_organizer: "Die Gruppe braucht immer mindestens einen Organisator.",
   self: "Dich selbst kannst du nicht entfernen.",
+  too_few: `Für die Auslosung braucht ihr mindestens ${MIN_PARTICIPANTS_TO_DRAW} Teilnehmer.`,
+  impossible:
+    "Mit diesen Ausschlüssen kann nicht jeder jemanden beschenken. Heb einen Ausschluss auf oder lade mehr Leute ein, dann klappt die Auslosung.",
 };
 
 /** What to tell an organizer whose exclusion form has the wrong input, in German. */

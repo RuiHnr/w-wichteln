@@ -1,4 +1,4 @@
-import type { ExclusionView, GroupPhase, GroupView, InviteResponse, Me, ParticipantView } from "../../shared/api";
+import type { ExclusionView, GroupPhase, GroupView, InviteResponse, Me, ParticipantView, RecipientView } from "../../shared/api";
 import type { GroupInput } from "../../shared/group-input";
 import { hashToken, newInviteCode, newToken } from "./tokens";
 
@@ -118,7 +118,19 @@ export async function findMe(db: D1Database, token: string): Promise<Me | null> 
     row,
     results.map((p) => ({ id: p.id, name: p.name, isOrganizer: p.is_organizer === 1 })),
   );
+  if (row.phase === "drawn") {
+    const recipient = await findRecipient(db, row.participant_id);
+    if (recipient) me.recipient = recipient;
+  }
   return row.is_organizer === 1 ? { ...me, exclusions: await findExclusions(db, row.group_id) } : me;
+}
+
+/** The recipient of one giver's assignment: the only assignment the API ever reads (ADR 0003). */
+async function findRecipient(db: D1Database, giverId: string): Promise<RecipientView | null> {
+  return db
+    .prepare("SELECT p.id, p.name FROM assignments a JOIN participants p ON p.id = a.recipient_id WHERE a.giver_id = ?")
+    .bind(giverId)
+    .first<RecipientView>();
 }
 
 async function findExclusions(db: D1Database, groupId: string): Promise<ExclusionView[]> {
