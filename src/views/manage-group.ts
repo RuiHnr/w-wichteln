@@ -8,7 +8,7 @@ import { budgetInputValue, exclusionErrorMessages, fieldErrorMessage, manageErro
 import { localToday } from "../today";
 import type { Rerender } from "./page-actions";
 import { renewLinkButton, wireLinkRenewal } from "./link-renewal";
-import { onConfirmedClick } from "./page-actions";
+import { closeOnBackdropClick, onConfirmedClick } from "./page-actions";
 
 /**
  * The organizer's controls on the group page: the draw and its reset, budget and date, per participant
@@ -278,16 +278,6 @@ export function wireManage(
     dialog.querySelector("[data-swap-off-confirm]")!.addEventListener("click", () => {
       dialog.close("confirm");
       save(0);
-    });
-  }
-
-  /** A click on the backdrop cancels too. It lands on the dialog itself, as does one on its padding, so check where. */
-  function closeOnBackdropClick(dialog: HTMLDialogElement): void {
-    dialog.addEventListener("click", (event) => {
-      if (event.target !== dialog) return;
-      const box = dialog.getBoundingClientRect();
-      const inside = event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
-      if (!inside) dialog.close();
     });
   }
 

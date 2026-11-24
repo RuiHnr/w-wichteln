@@ -42,3 +42,16 @@ export function onConfirmedClick(button: HTMLButtonElement, status: HTMLElement,
     act();
   });
 }
+
+/**
+ * A click on the backdrop cancels a dialog too, unless `canClose` says no. It lands on the
+ * dialog itself, as does one on its padding, so check where.
+ */
+export function closeOnBackdropClick(dialog: HTMLDialogElement, canClose: () => boolean = () => true): void {
+  dialog.addEventListener("click", (event) => {
+    if (event.target !== dialog || !canClose()) return;
+    const box = dialog.getBoundingClientRect();
+    const inside = event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+    if (!inside) dialog.close();
+  });
+}

@@ -30,6 +30,15 @@ describe("identity store", () => {
     expect(store.tokenFor("group-3")).toBeNull();
   });
 
+  it("finds the group a token belongs to, so a Personal Link of a deleted group can say so", () => {
+    const store = createIdentityStore(memoryStorage());
+    store.remember("group-1", "token-a");
+    store.remember("group-2", "token-b");
+
+    expect(store.groupWith("token-b")).toBe("group-2");
+    expect(store.groupWith("token-c")).toBeNull();
+  });
+
   it("forgets a group's token", () => {
     const storage = memoryStorage();
     createIdentityStore(storage).remember("group-1", "token-a");
