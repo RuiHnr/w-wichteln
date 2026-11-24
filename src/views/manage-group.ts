@@ -55,8 +55,7 @@ export function swapLimitPanel({ group }: Me): string {
     <section class="panel stack" aria-labelledby="swap-limit-heading">
       <h2 class="panel__title" id="swap-limit-heading" tabindex="-1" data-focus="swap-limit-heading">Tausch-Limit</h2>
       <p class="panel__text">So viele Tausche darf jede Person höchstens machen. Bei 0 ist Tauschen ausgeschaltet. Was schon getauscht ist, bleibt bestehen.</p>
-      <fieldset class="segments" data-swap-limit>
-        <legend class="visually-hidden">Tausch-Limit</legend>
+      <fieldset class="segments" data-swap-limit aria-labelledby="swap-limit-heading">
         ${options}
       </fieldset>
       <p class="form__status" role="status" data-swap-limit-status></p>
@@ -239,7 +238,13 @@ export function wireManage(
     fieldset.addEventListener("change", (event) => {
       const limit = Number((event.target as HTMLInputElement).value);
       const success = () => (limit === 0 ? "Tauschen ist ausgeschaltet." : `Tausch-Limit auf ${limit} gesetzt.`);
-      void run(() => updateSwapLimit(token, me.group.id, limit), status, success, "swap-limit", undefined, "swap-limit-heading");
+      // One save at a time: while it runs the choices are off, and a failed save shows the stored limit again.
+      fieldset.disabled = true;
+      void run(() => updateSwapLimit(token, me.group.id, limit), status, success, "swap-limit", undefined, "swap-limit-heading").finally(() => {
+        fieldset.disabled = false;
+        const stored = fieldset.querySelector<HTMLInputElement>(`input[value="${me.group.swapLimit}"]`);
+        if (stored && fieldset.isConnected) stored.checked = true;
+      });
     });
   }
 

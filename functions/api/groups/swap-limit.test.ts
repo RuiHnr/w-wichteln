@@ -127,22 +127,26 @@ describe("a changed Swap Limit", () => {
   });
 
   it("expires an open request when its sender is at the lowered limit", async () => {
-    const { givers, groupId, organizer } = await drawnGroup();
-    await setLimit(organizer, groupId, 2);
-    const [a, b] = swappablePairs(givers)[0];
-    await completeSwap(a, b);
-    // a asks someone else; not every draw leaves a valid partner after the first swap
-    let target: Giver | undefined;
-    for (const g of givers.filter((g) => g !== a && g !== b)) {
-      if ((await send(a.token, g.id)).status === 200) {
-        target = g;
-        break;
+    // After a first swap not every draw leaves a valid second partner, so draw again until one does.
+    let open: { sender: Giver; receiver: Giver; groupId: string; organizer: string } | undefined;
+    for (let attempt = 0; attempt < 30 && !open; attempt++) {
+      const { givers, groupId, organizer } = await drawnGroup();
+      await setLimit(organizer, groupId, 2);
+      const [a, b] = swappablePairs(givers)[0];
+      await completeSwap(a, b);
+      for (const receiver of givers.filter((g) => g !== a && g !== b)) {
+        if ((await send(a.token, receiver.id)).status === 200) {
+          open = { sender: a, receiver, groupId, organizer };
+          break;
+        }
       }
     }
-    if (!target) return;
-    await setLimit(organizer, groupId, 1);
-    expect((await meWith(a.token)).swaps!.outgoing).toBeUndefined();
-    expect((await meWith(target.token)).swaps!.incoming).toEqual([]);
+    if (!open) throw new Error("no draw left a second swap partner in 30 tries");
+
+    await setLimit(open.organizer, open.groupId, 1);
+
+    expect((await meWith(open.sender.token)).swaps!.outgoing).toBeUndefined();
+    expect((await meWith(open.receiver.token)).swaps!.incoming).toEqual([]);
   });
 
   it("keeps completed swaps when lowered and blocks further ones", async () => {
@@ -172,14 +176,23 @@ describe("a changed Swap Limit", () => {
   });
 
   it("when raised lets participants who used their swaps ask again", async () => {
-    const { givers, groupId, organizer } = await drawnGroup();
-    const [a, b] = swappablePairs(givers)[0];
-    await completeSwap(a, b);
-    await setLimit(organizer, groupId, 2);
-    for (const g of givers.filter((g) => g !== a)) {
-      const response = await send(a.token, g.id);
-      if (response.status === 409) expect(await response.json()).not.toEqual({ error: "limit_reached" });
+    // After a first swap not every draw leaves a valid second partner, so draw again until one does.
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const { givers, groupId, organizer } = await drawnGroup();
+      const [a, b] = swappablePairs(givers)[0];
+      await completeSwap(a, b);
+      const others = givers.filter((g) => g !== a && g !== b);
+      expect(await (await send(a.token, others[0].id)).json()).toEqual({ error: "limit_reached" });
+
+      await setLimit(organizer, groupId, 2);
+
+      for (const other of others) {
+        if ((await send(a.token, other.id)).status === 200) {
+          expect((await meWith(a.token)).swaps!.outgoing?.receiver.id).toBe(other.id);
+          return;
+        }
+      }
     }
-    expect((await meWith(a.token)).swaps!.limit).toBe(2);
+    throw new Error("no draw left a second swap partner in 30 tries");
   });
 });
