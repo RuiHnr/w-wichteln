@@ -1,4 +1,5 @@
 import type { Me } from "../../shared/api";
+import { groupStillExists } from "../api";
 import { escapeHtml, showMessage, showView } from "../html";
 import { createIdentityStore } from "../identity";
 import { inviteLink, personalLink } from "../links";
@@ -113,16 +114,17 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
   if (after) restoreFocus(main, after);
   const rerender = (fresh: Me, next: AfterAction) => renderGroupPage(main, fresh, token, next);
   if (recipient) wireGiftReveal(main, () => reveals.rememberUnwrapped(group.id, recipient.id));
-  wireWishlist(main, token, rerender, () => renderNotRecognised(main));
-  wireSwaps(main, me, token, rerender, () => renderNotRecognised(main));
+  const unrecognised = () => void showTokenStopped(main, group.id);
+  wireWishlist(main, token, rerender, unrecognised);
+  wireSwaps(main, me, token, rerender, unrecognised);
   if (me.participant.isOrganizer) {
-    wireManage(main, me, token, rerender, () => renderNotRecognised(main));
+    wireManage(main, me, token, rerender, unrecognised);
     // The deleting organizer lands where every link of the group now leads.
     const onDeleted = () => {
       createIdentityStore(localStorage).forget(group.id);
       renderGroupGone(main);
     };
-    wireDeleteGroup(main, me, token, rerender, () => renderNotRecognised(main), onDeleted);
+    wireDeleteGroup(main, me, token, rerender, unrecognised, onDeleted);
   }
   const status = main.querySelector<HTMLElement>("[data-copy-status]")!;
 
@@ -150,6 +152,16 @@ function restoreFocus(main: HTMLElement, after: AfterAction): void {
     control?.closest(".panel")?.querySelector<HTMLElement>("[role=status]") ?? main.querySelector<HTMLElement>("[data-people-status]")!;
   // A live region filled in the same frame it is inserted is often not read out.
   setTimeout(() => (status.textContent = after.status), 50);
+}
+
+/**
+ * The token stopped working while the page was open: forget it, then say the group is gone
+ * when it was deleted meanwhile, or else that this device is no longer recognised.
+ */
+async function showTokenStopped(main: HTMLElement, groupId: string): Promise<void> {
+  createIdentityStore(localStorage).forget(groupId);
+  if ((await groupStillExists(groupId)) === false) return renderGroupGone(main);
+  renderNotRecognised(main);
 }
 
 /** Shown for a link to a group that was deleted (by an organizer, or 60 days after its date) or never existed. */

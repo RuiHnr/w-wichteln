@@ -19,7 +19,7 @@ if (canvas) startSnowfall(canvas);
 const main = document.querySelector<HTMLElement>("#main")!;
 const identity = createIdentityStore(localStorage);
 
-/** No usable token for this group: say so, unless the group itself is gone (deleted 60 days after its date). */
+/** No usable token for this group: say so, unless the group itself is gone (deleted by an organizer, or 60 days after its date). */
 async function showNotRecognised(groupId: string): Promise<void> {
   if ((await groupStillExists(groupId)) === false) return renderGroupGone(main);
   renderNotRecognised(main);
@@ -107,7 +107,7 @@ async function showPersonal(token: string): Promise<void> {
       const groupId = identity.groupWith(token);
       if (groupId) identity.forget(groupId);
       if (groupId && (await groupStillExists(groupId)) === false) return renderGroupGone(main);
-      return showMessage(main, "Dieser persönliche Link gilt nicht", "Prüf, ob du ihn vollständig kopiert hast. Gruppen werden 60 Tage nach der Bescherung gelöscht.", {
+      return showMessage(main, "Dieser persönliche Link gilt nicht", "Prüf, ob du ihn vollständig kopiert hast. Vielleicht gibt es die Gruppe auch nicht mehr: Organisatoren können sie löschen, und 60 Tage nach der Bescherung wird sie automatisch gelöscht.", {
         href: "/",
         label: "Neue Gruppe anlegen",
       });

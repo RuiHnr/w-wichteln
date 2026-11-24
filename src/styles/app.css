@@ -554,6 +554,7 @@ html {
   overflow-wrap: anywhere;
 }
 
+/* Any button that is turned off: faded, and it no longer answers the pointer */
 .btn:disabled,
 .btn:disabled:hover,
 .btn:disabled:active {

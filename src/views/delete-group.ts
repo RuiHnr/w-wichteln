@@ -12,7 +12,7 @@ import { closeOnBackdropClick, type Rerender } from "./page-actions";
 
 /** Whether what was typed confirms deleting the group: its exact name, spaces around it aside. */
 export function confirmsGroupName(typed: string, groupName: string): boolean {
-  return typed.trim() === groupName;
+  return typed.trim().normalize("NFC") === groupName.normalize("NFC");
 }
 
 export function deleteGroupPanel({ group }: Me): string {
@@ -71,7 +71,9 @@ export function wireDeleteGroup(
     dialog.showModal();
   });
   input.addEventListener("input", update);
-  dialog.querySelector("[data-delete-cancel]")!.addEventListener("click", () => dialog.close());
+  dialog.querySelector("[data-delete-cancel]")!.addEventListener("click", () => {
+    if (!busy) dialog.close();
+  });
   // Cancelling, by button, Escape or backdrop, gives the focus back to the button that opened it.
   dialog.addEventListener("close", () => {
     if (main.contains(dialog)) open.focus();

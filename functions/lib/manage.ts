@@ -335,21 +335,22 @@ export async function resetGroup(db: D1Database, token: string, groupId: string)
 
 /**
  * Group Deletion: an organizer deletes the group with everything in it, in either phase,
- * with the same result as its Expiry (see `deleteGroups`). Afterwards the caller's token is
- * unknown like everyone else's, so there is no fresh view to answer with.
- *
- * The role is checked just before the deletion, not inside it: once the group's rows go, no
- * statement could still find the caller among them.
+ * with the same result as its Expiry (see `deleteGroups`). Every statement of the deletion
+ * re-checks the caller's role, so an organizer demoted at the same moment deletes nothing.
+ * Afterwards the caller's token is unknown like everyone else's, so there is no fresh view.
  */
 export async function deleteGroup(
   db: D1Database,
   token: string | null,
   groupId: string,
 ): Promise<{ ok: true } | { ok: false; reason: ManageError }> {
+  if (!token) return { ok: false, reason: "unknown_token" };
+  const callerIsOrganizer =
+    "EXISTS (SELECT 1 FROM participants caller WHERE caller.token_hash = ? AND caller.group_id = groups.id AND caller.is_organizer = 1)";
+  const deleted = await deleteGroups(db, [groupId], callerIsOrganizer, [await hashToken(token)]);
+  if (deleted.length === 1) return { ok: true };
   const caller = await findOrganizer(db, token, groupId);
-  if (!caller.ok) return caller;
-  await deleteGroups(db, [groupId]);
-  return { ok: true };
+  return { ok: false, reason: caller.ok ? "not_organizer" : caller.reason };
 }
 
 const statusOf: Record<ManageError, number> = {
