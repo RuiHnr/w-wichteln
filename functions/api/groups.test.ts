@@ -44,6 +44,7 @@ describe("POST /api/groups", () => {
       },
       participant: { id: expect.any(String), name: "Lea", isOrganizer: true },
       participants: [{ id: expect.any(String), name: "Lea", isOrganizer: true }],
+      exclusions: [],
     };
     expect(me).toEqual(expected);
 

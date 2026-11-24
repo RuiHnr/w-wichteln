@@ -40,7 +40,8 @@ export const manageErrorMessages: Record<ManageError, string> = {
   unknown_token: "Dieses Gerät ist in der Gruppe nicht mehr angemeldet.",
   not_organizer: "Du bist kein Organisator mehr. Die Seite zeigt jetzt den aktuellen Stand.",
   unknown_participant: "Diese Person ist nicht mehr in der Gruppe.",
-  drawn: "Nach der Auslosung kann niemand mehr entfernt werden.",
+  unknown_exclusion: "Diesen Ausschluss gibt es nicht mehr.",
+  drawn: "Die Gruppe ist schon ausgelost. Das lässt sich jetzt nicht mehr ändern.",
   last_organizer: "Die Gruppe braucht immer mindestens einen Organisator.",
   self: "Dich selbst kannst du nicht entfernen.",
 };

@@ -25,12 +25,20 @@ export interface InviteResponse {
   group: Omit<GroupView, "inviteCode">;
 }
 
+/** An exclusion between two participants of the group; it works in both directions, so the order means nothing. */
+export interface ExclusionView {
+  id: string;
+  participantIds: [string, string];
+}
+
 /** The caller as the API knows them: their group, themselves and everyone in the group. */
 export interface Me {
   group: GroupView;
   participant: ParticipantView;
   /** Everyone in the caller's group, in the order they joined. */
   participants: ParticipantView[];
+  /** The group's exclusions, in the order they were added. Only organizers get this field. */
+  exclusions?: ExclusionView[];
 }
 
 /** 201 from POST /api/groups. */
@@ -56,7 +64,14 @@ export interface JoinErrorResponse {
 }
 
 /** Why an organizer action was refused, in `{ error }` of a 401, 403, 404 or 409. */
-export type ManageError = "unknown_token" | "not_organizer" | "unknown_participant" | "drawn" | "last_organizer" | "self";
+export type ManageError =
+  | "unknown_token"
+  | "not_organizer"
+  | "unknown_participant"
+  | "unknown_exclusion"
+  | "drawn"
+  | "last_organizer"
+  | "self";
 
 /** 400 from PATCH /api/groups/:groupId: one error code per invalid field. */
 export interface SettingsErrorResponse {
@@ -66,4 +81,12 @@ export interface SettingsErrorResponse {
 /** 400 from PATCH /api/groups/:groupId/participants/:participantId when `isOrganizer` is not a boolean. */
 export interface OrganizerErrorResponse {
   errors: { isOrganizer: "invalid" };
+}
+
+/** Why the body of POST /api/groups/:groupId/exclusions was refused: not two participant ids, or the same one twice. */
+export type ExclusionInputError = "invalid" | "same";
+
+/** 400 from POST /api/groups/:groupId/exclusions. */
+export interface ExclusionErrorResponse {
+  errors: { participantIds: ExclusionInputError };
 }

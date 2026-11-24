@@ -106,11 +106,13 @@ export async function removeParticipant(
         WHERE id = ? AND group_id = ? AND token_hash != ?
           AND (SELECT phase FROM groups WHERE id = participants.group_id) = 'open'
           AND ${NOT_LAST_ORGANIZER}
-          AND ${CALLER_IS_ORGANIZER}`,
+          AND ${CALLER_IS_ORGANIZER}
+        RETURNING id`,
     )
     .bind(participantId, groupId, tokenHash, tokenHash, groupId)
-    .run();
-  if (deleted.meta.changes === 1) return changed(db, token);
+    .all();
+  // Not meta.changes: D1 counts the exclusions removed with the participant (ON DELETE CASCADE) too.
+  if (deleted.results.length === 1) return changed(db, token);
   return { ok: false, reason: await whyRefused(db, token, groupId, participantId, { self: true, drawn: true }) };
 }
 
@@ -139,10 +141,70 @@ export async function setOrganizer(
   return { ok: false, reason: await whyRefused(db, token, groupId, participantId, { lastOrganizer: !isOrganizer }) };
 }
 
+/**
+ * Adds an exclusion between two different participants of the group while it is open.
+ * The pair is stored once, smaller id first, so adding it again in either order has no
+ * effect and still succeeds.
+ */
+export async function addExclusion(
+  db: D1Database,
+  token: string,
+  groupId: string,
+  participantIds: [string, string],
+): Promise<ManageResult> {
+  const [a, b] = [...participantIds].sort();
+  const tokenHash = await hashToken(token);
+  const inserted = await db
+    .prepare(
+      `INSERT INTO exclusions (id, group_id, participant_a, participant_b)
+       SELECT ?, g.id, ?, ? FROM groups g
+        WHERE g.id = ? AND g.phase = 'open'
+          AND (SELECT COUNT(*) FROM participants p WHERE p.group_id = g.id AND p.id IN (?, ?)) = 2
+          AND ${CALLER_IS_ORGANIZER}
+       ON CONFLICT (participant_a, participant_b) DO NOTHING`,
+    )
+    .bind(crypto.randomUUID(), a, b, groupId, a, b, tokenHash, groupId)
+    .run();
+  if (inserted.meta.changes === 1) return changed(db, token);
+
+  const caller = await findOrganizer(db, token, groupId);
+  if (!caller.ok) return caller;
+  const known = new Set(caller.me.participants.map((p) => p.id));
+  if (!known.has(a) || !known.has(b)) return { ok: false, reason: "unknown_participant" };
+  if (caller.me.group.phase !== "open") return { ok: false, reason: "drawn" };
+  const exists = caller.me.exclusions?.some((e) => e.participantIds[0] === a && e.participantIds[1] === b);
+  return exists ? caller : { ok: false, reason: "not_organizer" };
+}
+
+/** Removes an exclusion while the group is open. */
+export async function removeExclusion(
+  db: D1Database,
+  token: string,
+  groupId: string,
+  exclusionId: string,
+): Promise<ManageResult> {
+  const deleted = await db
+    .prepare(
+      `DELETE FROM exclusions
+        WHERE id = ? AND group_id = ?
+          AND (SELECT phase FROM groups WHERE id = exclusions.group_id) = 'open'
+          AND ${CALLER_IS_ORGANIZER}`,
+    )
+    .bind(exclusionId, groupId, await hashToken(token), groupId)
+    .run();
+  if (deleted.meta.changes === 1) return changed(db, token);
+
+  const caller = await findOrganizer(db, token, groupId);
+  if (!caller.ok) return caller;
+  if (!caller.me.exclusions?.some((e) => e.id === exclusionId)) return { ok: false, reason: "unknown_exclusion" };
+  return { ok: false, reason: caller.me.group.phase !== "open" ? "drawn" : "not_organizer" };
+}
+
 const statusOf: Record<ManageError, number> = {
   unknown_token: 401,
   not_organizer: 403,
   unknown_participant: 404,
+  unknown_exclusion: 404,
   drawn: 409,
   last_organizer: 409,
   self: 409,
