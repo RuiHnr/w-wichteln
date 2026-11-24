@@ -4,13 +4,14 @@ import { escapeHtml, showMessage, showView } from "../html";
 import { createIdentityStore } from "../identity";
 import { createLinkNoticeStore } from "../link-notice";
 import { inviteLink, personalLink } from "../links";
+import { linkRenewalNote } from "../messages";
 import type { RevealState } from "../reveal";
 import { createRevealStore, initialRevealState, prefersReducedMotion } from "../reveal";
 import { deleteGroupPanel, wireDeleteGroup } from "./delete-group";
 import { drawPanel, resetPanel } from "./draw-panel";
 import { wireGiftReveal } from "./gift-reveal";
 import { groupFacts, phaseLabel } from "./group-facts";
-import type { AfterAction } from "./page-actions";
+import type { AfterAction, Rerender } from "./page-actions";
 import { linkRow, wireLinkRows } from "./link-row";
 import { exclusionsPanel, participantActions, settingsPanel, swapLimitPanel, wireManage } from "./manage-group";
 import { linkNotice, wireLinkNotice } from "./save-link";
@@ -23,7 +24,11 @@ function participantList(me: Me): string {
       const you = p.id === me.participant.id ? ` <span class="people__tag">du</span>` : "";
       const organizer = p.isOrganizer ? ` <span class="people__tag">Organisator</span>` : "";
       const actions = me.participant.isOrganizer ? participantActions(me, p) : "";
-      return `<li class="people__item"><span class="people__name">${escapeHtml(p.name)}${you}${organizer}</span>${actions}</li>`;
+      // Everyone sees who renewed whose link and when (ADR 0004).
+      const renewal = p.linkRenewal
+        ? `<span class="people__note">${escapeHtml(linkRenewalNote(p.linkRenewal, me.participant.id))}</span>`
+        : "";
+      return `<li class="people__item"><span class="people__name">${escapeHtml(p.name)}${you}${organizer}${renewal}</span>${actions}</li>`;
     })
     .join("");
   return `
@@ -110,7 +115,17 @@ export function renderGroupPage(main: HTMLElement, me: Me, token: string, after?
   // after an organizer action the page is re-rendered in place, so it does not enter again
   showView(main, markup(me, token, reveal, after !== undefined, !linkNotices.isDismissed(group.id)));
   if (after) restoreFocus(main, after);
-  const rerender = (fresh: Me, next: AfterAction) => renderGroupPage(main, fresh, token, next);
+  const rerender: Rerender = (fresh, next, nextToken = token) => {
+    // After organizers renewed their own link, this device goes on with the new token.
+    if (nextToken !== token) {
+      try {
+        createIdentityStore(localStorage).remember(fresh.group.id, nextToken);
+      } catch {
+        // Storage refused (private mode, full): the page still shows the new link to save.
+      }
+    }
+    renderGroupPage(main, fresh, nextToken, next);
+  };
   if (recipient) wireGiftReveal(main, () => reveals.rememberUnwrapped(group.id, recipient.id));
   const unrecognised = () => void showTokenStopped(main, group.id);
   wireWishlist(main, token, rerender, unrecognised);

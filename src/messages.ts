@@ -1,4 +1,4 @@
-import type { ExclusionInputError, JoinNameError, ManageError, SwapError } from "../shared/api";
+import type { ExclusionInputError, JoinNameError, LinkRenewalView, ManageError, SwapError } from "../shared/api";
 import { MIN_PARTICIPANTS_TO_DRAW } from "../shared/draw";
 import type { GroupField, GroupInputError } from "../shared/group-input";
 import { MAX_BUDGET_EUROS, MAX_GROUP_NAME_LENGTH, MAX_PARTICIPANT_NAME_LENGTH } from "../shared/group-input";
@@ -105,6 +105,16 @@ export function formatBudget(cents: number): string {
     currency: "EUR",
     minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
   }).format(cents / 100);
+}
+
+/**
+ * The trace of a Link Renewal in the participant list (ADR 0004): "Neuer Link von Lena am 24.11.",
+ * or "von dir" for the organizer who renewed it. The day is the viewer's, in `timeZone`.
+ */
+export function linkRenewalNote(renewal: LinkRenewalView, viewerId: string, timeZone?: string): string {
+  // Formats as "24.11.", trailing dot included.
+  const day = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", timeZone }).format(new Date(renewal.at));
+  return `Neuer Link von ${renewal.byId === viewerId ? "dir" : renewal.by} am ${day}`;
 }
 
 /** "2026-12-20" → "Sonntag, 20. Dezember 2026" */

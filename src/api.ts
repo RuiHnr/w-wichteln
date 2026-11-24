@@ -8,6 +8,7 @@ import type {
   JoinNameError,
   ManageError,
   Me,
+  RenewLinkResponse,
   SettingsErrorResponse,
   SwapLimitErrorResponse,
   SwapError,
@@ -142,6 +143,19 @@ export async function setOrganizer(token: string, groupId: string, participantId
 export async function removeParticipant(token: string, groupId: string, participantId: string): Promise<OrganizerActionResult> {
   const response = await sendWithToken(token, "DELETE", participantPath(groupId, participantId));
   return readAction<ManageError>(response, "DELETE /api/groups/participants");
+}
+
+export type RenewLinkResult = { ok: true; renewed: RenewLinkResponse } | { ok: false; error: ManageError };
+
+/** Link Renewal: a new Personal Link for the participant; their old one stops working. */
+export async function renewLink(token: string, groupId: string, participantId: string): Promise<RenewLinkResult> {
+  const response = await sendWithToken(token, "POST", `${participantPath(groupId, participantId)}/link`);
+  if ([401, 403, 404, 409].includes(response.status)) {
+    const { error } = (await response.json()) as { error: ManageError };
+    return { ok: false, error };
+  }
+  if (!response.ok) throw new Error(`POST /api/groups/participants/link answered ${response.status}`);
+  return { ok: true, renewed: (await response.json()) as RenewLinkResponse };
 }
 
 const exclusionsPath = (groupId: string) => `/api/groups/${encodeURIComponent(groupId)}/exclusions`;

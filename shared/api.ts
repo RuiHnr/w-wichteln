@@ -21,6 +21,18 @@ export interface ParticipantView {
   id: string;
   name: string;
   isOrganizer: boolean;
+  /** The latest Link Renewal of this participant's Personal Link, if any; everyone in the group sees it (ADR 0004). */
+  linkRenewal?: LinkRenewalView;
+}
+
+/** Who created a participant's current Personal Link in their place, and when. */
+export interface LinkRenewalView {
+  /** The organizer's name at the time; it stays after they leave the group. */
+  by: string;
+  /** The organizer's participant id, to tell them apart from someone who later joins under the same name. */
+  byId: string;
+  /** ISO 8601, UTC. */
+  at: string;
 }
 
 /** 200 from GET /api/invites/:code: what someone is about to join. No participants, no invite code. */
@@ -106,6 +118,16 @@ export type ManageError =
   | "too_few"
   | "impossible"
   | "changed";
+
+/**
+ * 200 from POST /api/groups/:groupId/participants/:participantId/link (Link Renewal, ADR 0004): the
+ * participant's new token, shown once since only its hash is stored, and the caller's fresh view.
+ * When organizers renew their own link, `me` is already seen through the new token.
+ */
+export interface RenewLinkResponse {
+  token: string;
+  me: Me;
+}
 
 /** 400 from PATCH /api/groups/:groupId: one error code per invalid field. */
 export interface SettingsErrorResponse {

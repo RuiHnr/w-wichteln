@@ -1,3 +1,4 @@
+import { copyText } from "../clipboard";
 import { escapeHtml } from "../html";
 
 /** A link to pass on: the address in a read-only field, a copy button and, where asked for, a share button. */
@@ -26,16 +27,6 @@ export function linkRow({ id, url, copyLabel, copiedMessage, shareTitle, shareLa
         data-copied="${escapeHtml(copiedMessage)}" aria-label="${escapeHtml(copyLabel)}">Kopieren</button>
       ${share}
     </div>`;
-}
-
-async function copyText(input: HTMLInputElement): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(input.value);
-    return true;
-  } catch {
-    input.select();
-    return document.execCommand("copy");
-  }
 }
 
 /** Makes every link row inside `root` work; outcomes are announced in `status`. */

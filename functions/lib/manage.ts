@@ -4,7 +4,7 @@ import { MIN_PARTICIPANTS_TO_DRAW } from "../../shared/draw";
 import { type Assignments, drawAssignments } from "./draw";
 import { deleteGroups } from "./group-deletion";
 import { completedSwapsOf, findMe } from "./groups";
-import { hashToken } from "./tokens";
+import { hashToken, newToken } from "./tokens";
 
 /**
  * What organizers do to their group. Every organizer has the same rights; the creator has
@@ -157,6 +157,38 @@ export async function setOrganizer(
     .run();
   if (updated.meta.changes === 1) return changed(db, token);
   return { ok: false, reason: await whyRefused(db, token, groupId, participantId, { lastOrganizer: !isOrganizer }) };
+}
+
+export type RenewLinkResult = { ok: true; token: string; me: Me } | { ok: false; reason: ManageError };
+
+/**
+ * Link Renewal (ADR 0004): gives a participant of the group a new token, in either phase. Only
+ * the token hash changes, so their identity, assignment, wishlist and swap requests stay; the old
+ * Personal Link stops working everywhere. When organizers renew their own link, the fresh view
+ * is seen through the new token.
+ */
+export async function renewLink(db: D1Database, token: string, groupId: string, participantId: string): Promise<RenewLinkResult> {
+  const tokenHash = await hashToken(token);
+  // Whether the caller renews their own link, known before their token hash is replaced.
+  const self = await db
+    .prepare("SELECT 1 AS found FROM participants WHERE id = ? AND token_hash = ?")
+    .bind(participantId, tokenHash)
+    .first();
+  const renewed = newToken();
+  const updated = await db
+    .prepare(
+      `UPDATE participants
+          SET token_hash = ?,
+              link_renewed_by = (SELECT caller.name FROM participants caller WHERE caller.token_hash = ?),
+              link_renewed_by_id = (SELECT caller.id FROM participants caller WHERE caller.token_hash = ?),
+              link_renewed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        WHERE id = ? AND group_id = ? AND ${CALLER_IS_ORGANIZER}`,
+    )
+    .bind(await hashToken(renewed), tokenHash, tokenHash, participantId, groupId, tokenHash, groupId)
+    .run();
+  if (updated.meta.changes !== 1) return { ok: false, reason: await whyRefused(db, token, groupId, participantId, {}) };
+  const result = await changed(db, self ? renewed : token);
+  return result.ok ? { ok: true, token: renewed, me: result.me } : result;
 }
 
 /**
