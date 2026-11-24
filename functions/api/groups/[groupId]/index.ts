@@ -34,6 +34,6 @@ export const onRequestPatch: PagesFunction<Env, "groupId"> = async ({ request, e
  * Answers 204; afterwards the group, its Invite Link and every Personal Link are unknown.
  */
 export const onRequestDelete: PagesFunction<Env, "groupId"> = async ({ request, env, params }) => {
-  const result = await deleteGroup(env.DB, bearerToken(request), String(params.groupId), env.PICTURES);
+  const result = await deleteGroup(env.DB, bearerToken(request), String(params.groupId));
   return result.ok ? new Response(null, { status: 204 }) : manageErrorResponse(result.reason);
 };

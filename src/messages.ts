@@ -99,7 +99,6 @@ export const pictureErrorMessages: Record<PictureError, string> = {
   not_self: "Ein Profilbild kann nur die Person selbst ändern.",
   too_large: "Das Bild ist zu groß. Wähl ein kleineres Bild, höchstens 1 MB.",
   wrong_format: "Dieses Bild lässt sich nicht verwenden. Wähl ein JPEG-, PNG- oder WebP-Bild.",
-  unavailable: "Bilder sind gerade nicht verfügbar. Versuch es später noch mal.",
 };
 
 /** Shown when creating or joining worked but a chosen picture did not upload. */

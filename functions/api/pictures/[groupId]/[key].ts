@@ -10,13 +10,15 @@ export const onRequestGet: PagesFunction<Env, "groupId" | "key"> = async ({ env,
   const groupId = String(params.groupId);
   const key = String(params.key);
   const notFound = () => Response.json({ error: "unknown_picture" }, { status: 404 });
-  if (!env.PICTURES || !PICTURE_KEY.test(key) || groupId.includes("/")) return notFound();
+  if (!PICTURE_KEY.test(key)) return notFound();
 
-  const object = await env.PICTURES.get(`${groupId}/${key}`);
-  if (!object) return notFound();
-  return new Response(object.body, {
+  const picture = await env.DB.prepare("SELECT content_type, data FROM pictures WHERE key = ? AND group_id = ?")
+    .bind(key, groupId)
+    .first<{ content_type: string; data: ArrayBuffer | number[] }>();
+  if (!picture) return notFound();
+  return new Response(new Uint8Array(picture.data), {
     headers: {
-      "content-type": object.httpMetadata?.contentType ?? "application/octet-stream",
+      "content-type": picture.content_type,
       "cache-control": "public, max-age=3600",
       "x-content-type-options": "nosniff",
     },

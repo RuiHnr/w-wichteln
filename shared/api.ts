@@ -136,9 +136,9 @@ export interface RenewLinkResponse {
 /**
  * Why a picture upload or removal was refused, in `{ error }`: 401 unknown_token, 403 not_organizer
  * (Group Picture) or not_self (Participant Picture: only the participant changes their own), 413 too_large,
- * 415 wrong_format, 503 unavailable (no image storage configured).
+ * 415 wrong_format.
  */
-export type PictureError = "unknown_token" | "not_organizer" | "not_self" | "too_large" | "wrong_format" | "unavailable";
+export type PictureError = "unknown_token" | "not_organizer" | "not_self" | "too_large" | "wrong_format";
 
 /** 400 from PATCH /api/groups/:groupId: one error code per invalid field. */
 export interface SettingsErrorResponse {

@@ -53,7 +53,8 @@ const fetchPicture = (url: string) => {
   return call(getPicture, request("GET", url, null), env, { groupId, key });
 };
 
-const objectsOf = async (groupId: string) => (await env.PICTURES!.list({ prefix: `${groupId}/` })).objects.length;
+const objectsOf = async (groupId: string) =>
+  (await env.DB.prepare("SELECT COUNT(*) AS n FROM pictures WHERE group_id = ?").bind(groupId).first<{ n: number }>())!.n;
 
 async function groupOfThree() {
   const lea = await newGroup();
@@ -285,23 +286,9 @@ describe("cleanup", () => {
     await putGroup(live.token, live.me.group.id);
 
     await env.DB.prepare("UPDATE groups SET exchange_date = '2000-01-01' WHERE id = ?").bind(groupId).run();
-    await deleteExpiredGroups(env.DB, Date.now(), 50, env.PICTURES);
+    await deleteExpiredGroups(env.DB, Date.now(), 50);
 
     expect(await objectsOf(groupId)).toBe(0);
     expect(await objectsOf(live.me.group.id)).toBe(1);
-  });
-});
-
-describe("without the R2 binding", () => {
-  it("answers uploads with 503 while everything else keeps working", async () => {
-    const { lea, groupId } = await groupOfThree();
-    const noBucket: Env = { DB: env.DB };
-    const response = await call(putGroupPicture, upload(PNG, lea.token, `/api/groups/${groupId}/picture`), noBucket, { groupId });
-    expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "unavailable" });
-    expect((await meWith(lea.token)).group.name).toBe("WG Weihnachten");
-
-    const served = await call(getPicture, request("GET", "/x", null), noBucket, { groupId, key: "0".repeat(32) });
-    expect(served.status).toBe(404);
   });
 });

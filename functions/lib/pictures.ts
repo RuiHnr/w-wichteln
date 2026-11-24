@@ -3,7 +3,7 @@ import { validatePicture } from "../../shared/picture";
 import type { Env } from "../env";
 import { findMe } from "./groups";
 import { findOrganizer } from "./manage";
-import { deletePictureObjects, newPictureKey } from "./picture-storage";
+import { newPictureKey } from "./picture-storage";
 import { hashToken } from "./tokens";
 
 /** Reads the uploaded image; null when it is over the size limit. Called only for callers who may upload. */
@@ -17,7 +17,6 @@ export const pictureErrorStatus: Record<PictureError, number> = {
   not_self: 403,
   too_large: 413,
   wrong_format: 415,
-  unavailable: 503,
 };
 
 export function pictureErrorResponse(error: PictureError): Response {
@@ -30,7 +29,7 @@ interface Target {
   /** Who may change it, as `[SQL condition on the row, its binds]`, and the error otherwise. */
   guard: { table: "groups" | "participants"; where: string; binds: unknown[]; refusal: PictureError };
   /** The caller's rights, checked before anything else. */
-  authorise: () => Promise<{ ok: true; currentKey: string | null } | { ok: false; reason: PictureError }>;
+  authorise: () => Promise<{ ok: true } | { ok: false; reason: PictureError }>;
 }
 
 async function groupTarget(env: Env, token: string | null, groupId: string): Promise<Target> {
@@ -46,8 +45,7 @@ async function groupTarget(env: Env, token: string | null, groupId: string): Pro
     async authorise() {
       const caller = await findOrganizer(env.DB, token, groupId);
       if (!caller.ok) return { ok: false, reason: caller.reason === "unknown_token" ? "unknown_token" : "not_organizer" };
-      const row = await env.DB.prepare("SELECT picture_key FROM groups WHERE id = ?").bind(groupId).first<{ picture_key: string | null }>();
-      return { ok: true, currentKey: row?.picture_key ?? null };
+      return { ok: true };
     },
   };
 }
@@ -62,19 +60,9 @@ async function participantTarget(env: Env, token: string | null, groupId: string
       if (!me) return { ok: false, reason: "unknown_token" };
       // Only ever the caller's own picture, whoever else is named: no organizer exception.
       if (me.group.id !== groupId || me.participant.id !== participantId) return { ok: false, reason: "not_self" };
-      const row = await env.DB.prepare("SELECT picture_key FROM participants WHERE id = ?")
-        .bind(participantId)
-        .first<{ picture_key: string | null }>();
-      return { ok: true, currentKey: row?.picture_key ?? null };
+      return { ok: true };
     },
   };
-}
-
-/** Sets the row's picture key, if the guard still holds; true when it did. */
-async function setKey(env: Env, target: Target, key: string | null): Promise<boolean> {
-  const { table, where, binds } = target.guard;
-  const updated = await env.DB.prepare(`UPDATE ${table} SET picture_key = ? WHERE ${where}`).bind(key, ...binds).run();
-  return updated.meta.changes === 1;
 }
 
 /** The caller's fresh view after a change. */
@@ -83,10 +71,23 @@ async function fresh(env: Env, token: string): Promise<PictureResult> {
   return me ? { ok: true, me } : { ok: false, reason: "unknown_token" };
 }
 
+/** The current picture of the row, if the guard holds: the one to delete when it is replaced or removed. */
+function deleteCurrent(env: Env, target: Target): D1PreparedStatement {
+  const { table, where, binds } = target.guard;
+  return env.DB.prepare(`DELETE FROM pictures WHERE key = (SELECT picture_key FROM ${table} WHERE ${where})`).bind(...binds);
+}
+
+/** Points the row at `key`, if the guard still holds. */
+function pointAt(env: Env, target: Target, key: string | null): D1PreparedStatement {
+  const { table, where, binds } = target.guard;
+  return env.DB.prepare(`UPDATE ${table} SET picture_key = ? WHERE ${where}`).bind(key, ...binds);
+}
+
 /**
- * Replaces the picture: rights first, then what the upload is, then the bucket. The new image is
- * stored before the row points at it, and the old one is deleted after, so the row never points
- * at a missing image. The upload is read only once the caller is known to be allowed.
+ * Replaces the picture: rights first, then what the upload is. Storing the new image, deleting
+ * the old one and pointing the row at the new one are one batch (a transaction), each guarded
+ * by the same condition, so either all happen or none: no image is ever left without its row.
+ * The upload is read only once the caller is known to be allowed.
  */
 async function replace(env: Env, token: string | null, target: Target, upload: Upload): Promise<PictureResult> {
   const allowed = await target.authorise();
@@ -94,23 +95,26 @@ async function replace(env: Env, token: string | null, target: Target, upload: U
   const bytes = await upload();
   const checked = validatePicture(bytes);
   if (!checked.ok) return { ok: false, reason: checked.error };
-  if (!env.PICTURES) return { ok: false, reason: "unavailable" };
 
   const key = newPictureKey();
-  await env.PICTURES.put(`${target.groupId}/${key}`, bytes!, { httpMetadata: { contentType: checked.type } });
-  if (!(await setKey(env, target, key))) {
-    await deletePictureObjects(env.PICTURES, target.groupId, [key]);
-    return { ok: false, reason: target.guard.refusal };
-  }
-  await deletePictureObjects(env.PICTURES, target.groupId, [allowed.currentKey]);
+  const { table, where, binds } = target.guard;
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO pictures (key, group_id, content_type, data) SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM ${table} WHERE ${where})`,
+    ).bind(key, target.groupId, checked.type, bytes!.buffer.slice(bytes!.byteOffset, bytes!.byteOffset + bytes!.byteLength), ...binds),
+    deleteCurrent(env, target),
+    pointAt(env, target, key),
+  ]);
+  if (results[2].meta.changes !== 1) return { ok: false, reason: target.guard.refusal };
   return fresh(env, token!);
 }
 
+/** Removes the picture: deleting the image and clearing the row are one batch, guarded alike. */
 async function remove(env: Env, token: string | null, target: Target): Promise<PictureResult> {
   const allowed = await target.authorise();
   if (!allowed.ok) return allowed;
-  if (!(await setKey(env, target, null))) return { ok: false, reason: target.guard.refusal };
-  await deletePictureObjects(env.PICTURES, target.groupId, [allowed.currentKey]);
+  const results = await env.DB.batch([deleteCurrent(env, target), pointAt(env, target, null)]);
+  if (results[1].meta.changes !== 1) return { ok: false, reason: target.guard.refusal };
   return fresh(env, token!);
 }
 

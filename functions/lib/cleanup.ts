@@ -14,7 +14,7 @@ export const CLEANUP_BATCH_SIZE = 5;
  * deletion re-applies the expiry condition to the chosen ids (see `deleteGroups`), so a
  * group whose date an organizer moved in the meantime is left alone, entirely.
  */
-export async function deleteExpiredGroups(db: D1Database, now = Date.now(), limit = CLEANUP_BATCH_SIZE, pictures?: R2Bucket): Promise<void> {
+export async function deleteExpiredGroups(db: D1Database, now = Date.now(), limit = CLEANUP_BATCH_SIZE): Promise<void> {
   const cutoff = expiryCutoff(now);
   const { results } = await db
     .prepare("SELECT id FROM groups WHERE exchange_date < ? ORDER BY exchange_date, id LIMIT ?")
@@ -25,6 +25,5 @@ export async function deleteExpiredGroups(db: D1Database, now = Date.now(), limi
     results.map((row) => row.id),
     "exchange_date < ?",
     [cutoff],
-    pictures,
   );
 }
